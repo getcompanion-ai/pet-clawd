@@ -1,0 +1,180 @@
+import AppKit
+
+class CrabSpriteRenderer {
+    let gridSize = 16
+    let scale = 5
+    let displaySize: CGFloat = 80
+
+    let bodyColor = NSColor(red: 0.843, green: 0.467, blue: 0.341, alpha: 1.0)
+    let eyeColor = NSColor(red: 0.176, green: 0.176, blue: 0.176, alpha: 1.0)
+
+    private var frameImages: [CGImage] = []
+    let layer = CALayer()
+
+    private var walkTimer: Timer?
+    private var walkToggle = false
+
+    enum Frame: Int {
+        case idle = 0
+        case walkA = 1
+        case walkB = 2
+        case blink = 3
+    }
+
+    private let idleData: [[Int]] = [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+
+    private let walkAData: [[Int]] = [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+        [0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+
+    private let walkBData: [[Int]] = [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+        [0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+
+    private let blinkData: [[Int]] = [
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+        [0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    ]
+
+    init() {
+        let allFrames = [idleData, walkAData, walkBData, blinkData]
+        for data in allFrames {
+            frameImages.append(renderFrame(data))
+        }
+
+        layer.frame = CGRect(x: 0, y: 0, width: displaySize, height: displaySize)
+        layer.contentsGravity = .center
+        layer.magnificationFilter = .nearest
+        layer.contents = frameImages[0]
+    }
+
+    private func renderFrame(_ data: [[Int]]) -> CGImage {
+        let size = gridSize * scale
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(
+            data: nil, width: size, height: size,
+            bitsPerComponent: 8, bytesPerRow: size * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+
+        ctx.clear(CGRect(x: 0, y: 0, width: size, height: size))
+
+        let bodyRGB = (r: 0.843, g: 0.467, b: 0.341)
+        let eyeRGB = (r: 0.176, g: 0.176, b: 0.176)
+
+        for row in 0..<gridSize {
+            for col in 0..<gridSize {
+                let val = data[row][col]
+                if val == 0 { continue }
+
+                let rgb = val == 1 ? bodyRGB : eyeRGB
+                ctx.setFillColor(red: rgb.r, green: rgb.g, blue: rgb.b, alpha: 1.0)
+
+                let flippedRow = gridSize - 1 - row
+                ctx.fill(CGRect(x: col * scale, y: flippedRow * scale, width: scale, height: scale))
+            }
+        }
+
+        return ctx.makeImage()!
+    }
+
+    func setFrame(_ frame: Frame) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.contents = frameImages[frame.rawValue]
+        CATransaction.commit()
+    }
+
+    func setFlipped(_ flipped: Bool) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.transform = flipped ? CATransform3DMakeScale(-1, 1, 1) : CATransform3DIdentity
+        layer.frame = CGRect(x: 0, y: 0, width: displaySize, height: displaySize)
+        CATransaction.commit()
+    }
+
+    func startWalkAnimation() {
+        stopWalkAnimation()
+        walkToggle = false
+        walkTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.walkToggle.toggle()
+            self.setFrame(self.walkToggle ? .walkA : .walkB)
+        }
+    }
+
+    func stopWalkAnimation() {
+        walkTimer?.invalidate()
+        walkTimer = nil
+        setFrame(.idle)
+    }
+
+    func isOpaqueAt(point: NSPoint) -> Bool {
+        let col = Int(point.x) / scale
+        let row = gridSize - 1 - Int(point.y) / scale
+        guard row >= 0, row < gridSize, col >= 0, col < gridSize else { return false }
+        return idleData[row][col] != 0
+    }
+}
