@@ -69,9 +69,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
-            button.title = "🦀"
+            button.image = renderMenuBarCrab()
         }
 
         let menu = NSMenu()
@@ -119,51 +119,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func renderMenuBarCrab() -> NSImage {
         let grid: [[Int]] = [
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-            [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
-            [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
-            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-            [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
-            [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
+            [0,0,1,1,2,2,1,1,2,2,1,1,0,0],
+            [0,0,1,1,2,2,1,1,2,2,1,1,0,0],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
+            [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
+            [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
         ]
-        let px = 3
-        let size = 16 * px
+        let rows = grid.count
+        let cols = grid[0].count
+        let pxSize = 44
+        let pxW = pxSize / cols
+        let pxH = pxSize / rows
+        let imgW = cols * pxW
+        let imgH = rows * pxH
+
         guard let ctx = CGContext(
-            data: nil, width: size, height: size,
-            bitsPerComponent: 8, bytesPerRow: size * 4,
+            data: nil, width: imgW, height: imgH,
+            bitsPerComponent: 8, bytesPerRow: imgW * 4,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
             return NSImage(systemSymbolName: "ladybug.fill", accessibilityDescription: "Clawd")!
         }
-        ctx.clear(CGRect(x: 0, y: 0, width: size, height: size))
-        for row in 0..<16 {
-            for col in 0..<16 {
+        ctx.clear(CGRect(x: 0, y: 0, width: imgW, height: imgH))
+        ctx.interpolationQuality = .none
+        for row in 0..<rows {
+            for col in 0..<cols {
                 let val = grid[row][col]
                 if val == 0 { continue }
-                let flippedRow = 15 - row
+                let flippedRow = rows - 1 - row
                 if val == 1 {
                     ctx.setFillColor(red: 0.843, green: 0.467, blue: 0.341, alpha: 1)
                 } else {
                     ctx.setFillColor(red: 0.176, green: 0.176, blue: 0.176, alpha: 1)
                 }
-                ctx.fill(CGRect(x: col * px, y: flippedRow * px, width: px, height: px))
+                ctx.fill(CGRect(x: col * pxW, y: flippedRow * pxH, width: pxW, height: pxH))
             }
         }
         guard let cgImage = ctx.makeImage() else {
             return NSImage(systemSymbolName: "ladybug.fill", accessibilityDescription: "Clawd")!
         }
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(size) / 2, height: CGFloat(size) / 2))
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: 22, height: 22))
         return image
     }
 
