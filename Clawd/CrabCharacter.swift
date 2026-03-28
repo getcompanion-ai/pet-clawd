@@ -85,7 +85,19 @@ class CrabCharacter {
         window.contentView = host
         window.orderFrontRegardless()
         lastTick = CACurrentMediaTime()
-        startCommentTimer()
+
+        if !ScreenContext.hasPermission {
+            ScreenContext.requestPermission()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                if ScreenContext.hasPermission {
+                    ScreenContext.enabled = true
+                }
+                self.startCommentTimer()
+            }
+        } else {
+            ScreenContext.enabled = true
+            startCommentTimer()
+        }
     }
 
     // MARK: - Random Comments
