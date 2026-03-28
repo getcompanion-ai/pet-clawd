@@ -1,11 +1,29 @@
 import AppKit
 
 class ScreenContext {
-    static var enabled = true
+    private static let enabledKey = "screenContextEnabled"
+
+    static var enabled: Bool {
+        get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+    }
+
+    static var hasPermission: Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
+    static func requestPermission() {
+        CGRequestScreenCaptureAccess()
+    }
 
     static func captureScreenshot(completion: @escaping (String?) -> Void) {
+        guard hasPermission else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+
         DispatchQueue.global(qos: .userInitiated).async {
-            let path = NSTemporaryDirectory() + "clawd-screen.png"
+            let path = NSTemporaryDirectory() + "clawd-screen-\(UUID().uuidString).png"
             let proc = Process()
             proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
             proc.arguments = ["-x", "-t", "png", "-C", path]
@@ -40,6 +58,7 @@ class ScreenContext {
                 return
             }
 
+            try? FileManager.default.removeItem(atPath: path)
             let base64 = jpeg.base64EncodedString()
             DispatchQueue.main.async { completion(base64) }
         }

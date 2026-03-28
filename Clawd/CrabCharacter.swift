@@ -133,7 +133,8 @@ class CrabCharacter {
               session?.isBusy != true,
               !isAutoComment,
               currentStreamingText.isEmpty,
-              ScreenContext.enabled else {
+              ScreenContext.enabled,
+              ScreenContext.hasPermission else {
             scheduleNextComment()
             return
         }
