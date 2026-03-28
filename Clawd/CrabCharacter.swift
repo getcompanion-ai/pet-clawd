@@ -110,7 +110,7 @@ class CrabCharacter {
             UserDefaults.standard.set(true, forKey: Self.hasLaunchedKey)
             commentTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
                 guard let self = self else { return }
-                let greeting = "hey! i'm clawd. i live on your dock, peek at your screen, and drop comments. click me to chat!"
+                let greeting = "hey! i'm clawd. click me to chat, or grant screen access so i can see what you're up to and drop comments!"
                 self.spriteRenderer.setFrame(.happy)
                 self.bounce(count: 3, height: 8)
                 self.showEffect(.sparkle)
