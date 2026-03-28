@@ -226,7 +226,6 @@ class CrabCharacter {
     private func playLove() -> Double {
         spriteRenderer.setFrame(.love)
         pulse(scale: 1.12, count: 2)
-        tint(.systemPink, alpha: 0.15)
         showEffect(.heart)
         return 2.2
     }
