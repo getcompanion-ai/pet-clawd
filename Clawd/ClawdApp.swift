@@ -32,7 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard type == .keyDown else { return Unmanaged.passRetained(event) }
             let flags = event.flags
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            if flags.contains(.maskControl) && keyCode == 49 {
+            if flags.contains(.maskCommand) && flags.contains(.maskShift) && keyCode == 49 {
                 let delegate = Unmanaged<AppDelegate>.fromOpaque(refcon!).takeUnretainedValue()
                 DispatchQueue.main.async { delegate.togglePopover() }
                 return nil
@@ -71,9 +71,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "fossil.shell.fill", accessibilityDescription: "Clawd")
-                ?? NSImage(systemSymbolName: "ladybug.fill", accessibilityDescription: "Clawd")
+            button.image = renderMenuBarCrab()
             button.image?.size = NSSize(width: 18, height: 18)
+            button.image?.isTemplate = true
         }
 
         let menu = NSMenu()
@@ -83,7 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(toggleItem)
 
         let chatItem = NSMenuItem(title: "Open Chat", action: #selector(openChat), keyEquivalent: " ")
-        chatItem.keyEquivalentModifierMask = .control
+        chatItem.keyEquivalentModifierMask = [.command, .shift]
         menu.addItem(chatItem)
 
         let newChatItem = NSMenuItem(title: "New Chat", action: #selector(newChat), keyEquivalent: "n")
@@ -117,6 +117,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
 
         statusItem?.menu = menu
+    }
+
+    func renderMenuBarCrab() -> NSImage {
+        let grid: [[Int]] = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+            [0,0,0,1,1,2,2,1,1,2,2,1,1,0,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+            [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        ]
+        let size = 36
+        let scale = size / 16
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.lockFocus()
+        for row in 0..<16 {
+            for col in 0..<16 {
+                if grid[row][col] == 0 { continue }
+                let flippedRow = 15 - row
+                NSColor.black.setFill()
+                NSRect(x: col * scale, y: flippedRow * scale, width: scale, height: scale).fill()
+            }
+        }
+        image.unlockFocus()
+        return image
     }
 
     @objc func toggleVisibility(_ sender: NSMenuItem) {
