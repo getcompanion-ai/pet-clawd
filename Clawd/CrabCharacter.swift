@@ -39,8 +39,6 @@ class CrabCharacter {
     var previewTextView: NSTextView?
     var previewFadeTimer: Timer?
 
-    var isDragged = false
-    var customY: CGFloat?
     var tapTimes: [CFTimeInterval] = []
     var emotionResetTimer: Timer?
     var tapDebounceTimer: Timer?
@@ -344,11 +342,7 @@ class CrabCharacter {
     private func clearEffects() {
         for l in effectLayers { l.removeFromSuperlayer() }
         effectLayers.removeAll()
-        tintOverlay?.removeFromSuperlayer()
-        tintOverlay = nil
     }
-
-    private var tintOverlay: CALayer?
 
     // MARK: - Animation Primitives
 
@@ -442,19 +436,6 @@ class CrabCharacter {
             CATransaction.setAnimationDuration(duration)
             layer.transform = CATransform3DIdentity
             CATransaction.commit()
-        }
-    }
-
-    private func tint(_ color: NSColor, alpha: CGFloat) {
-        tintOverlay?.removeFromSuperlayer()
-        let overlay = CALayer()
-        overlay.frame = spriteRenderer.layer.bounds
-        overlay.backgroundColor = color.withAlphaComponent(alpha).cgColor
-        spriteRenderer.layer.addSublayer(overlay)
-        tintOverlay = overlay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.tintOverlay?.removeFromSuperlayer()
-            self?.tintOverlay = nil
         }
     }
 
@@ -832,11 +813,14 @@ class CrabCharacter {
     private let previewPad: CGFloat = 10
 
     private func layoutPreview() {
-        guard let tv = previewTextView, let win = previewWindow else { return }
+        guard let tv = previewTextView,
+              let win = previewWindow,
+              let lm = tv.layoutManager,
+              let tc = tv.textContainer else { return }
         let innerW = previewW - previewPad * 2
-        tv.textContainer?.containerSize = NSSize(width: innerW, height: .greatestFiniteMagnitude)
-        tv.layoutManager?.ensureLayout(for: tv.textContainer!)
-        let used = tv.layoutManager!.usedRect(for: tv.textContainer!)
+        tc.containerSize = NSSize(width: innerW, height: .greatestFiniteMagnitude)
+        lm.ensureLayout(for: tc)
+        let used = lm.usedRect(for: tc)
         let textH = ceil(used.height) + 8
         let ph = max(textH + previewPad * 2, 34)
 
@@ -1014,40 +998,6 @@ class CrabCharacter {
         previewTextView = tv
     }
 
-    // MARK: - Drag & Snap
-
-    var velX: CGFloat = 0
-    var velY: CGFloat = 0
-    var isFalling = false
-    var fallTargetY: CGFloat = 0
-    let gravity: CGFloat = 2400
-    let restitution: CGFloat = 0.5
-    let friction: CGFloat = 0.99
-    var isThrown = false
-
-    func snapToSurface() {
-        fallTargetY = lastFloorY
-        velX = 0
-        velY = 0
-        isFalling = true
-        isThrown = false
-        isDragged = true
-        isPaused = true
-        pauseEndTime = CACurrentMediaTime() + Double.random(in: 4.0...8.0)
-    }
-
-    func throwWithVelocity(vx: CGFloat, vy: CGFloat) {
-        fallTargetY = lastFloorY
-        let scale: CGFloat = 0.8
-        velX = vx * scale
-        velY = vy * scale
-        isFalling = true
-        isThrown = true
-        isDragged = true
-        isPaused = true
-        pauseEndTime = CACurrentMediaTime() + 99999
-    }
-
     // MARK: - Walking
 
     var walkPixelX: CGFloat = 0
@@ -1091,18 +1041,6 @@ class CrabCharacter {
         pauseEndTime = CACurrentMediaTime() + Double.random(in: 4.0...10.0)
     }
 
-    func triggerFall() {
-        isWalking = false
-        spriteRenderer.stopWalkAnimation()
-        fallTargetY = lastFloorY
-        velX = 0
-        velY = 0
-        isFalling = true
-        isDragged = true
-        isPaused = true
-        pauseEndTime = CACurrentMediaTime() + Double.random(in: 3.0...6.0)
-    }
-
     func update(floorY: CGFloat, screenLeft: CGFloat, screenWidth: CGFloat) {
         lastFloorY = floorY
         lastScreenLeft = screenLeft
@@ -1120,52 +1058,14 @@ class CrabCharacter {
             if !isWalking { spriteRenderer.setFrame(.idle) }
         }
 
-        if isFalling {
-            fallTargetY = floorY
-            let dtF = CGFloat(dt)
-            velY -= gravity * dtF
-            velX *= friction
-            var curX = window.frame.origin.x + velX * dtF
-            var curY = window.frame.origin.y + velY * dtF
-
-            if let screen = NSScreen.main {
-                let minX = screen.frame.minX
-                let maxX = screen.frame.maxX - displaySize
-                let maxY = screen.frame.maxY - displaySize
-                if curX < minX { curX = minX; velX = -velX * restitution }
-                if curX > maxX { curX = maxX; velX = -velX * restitution }
-                if curY > maxY { curY = maxY; velY = -abs(velY) * restitution }
-            }
-
-            if curY <= fallTargetY {
-                curY = fallTargetY
-                if abs(velY) > 20 || abs(velX) > 20 {
-                    velY = abs(velY) * restitution
-                    velX *= 0.8
-                } else {
-                    isFalling = false
-                    isThrown = false
-                    velX = 0
-                    velY = 0
-                    customY = fallTargetY
-                    walkPixelX = curX
-                    pauseEndTime = CACurrentMediaTime() + Double.random(in: 3.0...6.0)
-                }
-            }
-
-            window.setFrameOrigin(NSPoint(x: curX, y: curY))
-            return
-        }
-
         if panelOpen {
-            window.setFrameOrigin(NSPoint(x: window.frame.origin.x, y: customY ?? floorY))
+            window.setFrameOrigin(NSPoint(x: window.frame.origin.x, y: floorY))
             positionPopover()
             return
         }
 
         if isPaused {
             if now >= pauseEndTime {
-                if isDragged { isDragged = false }
                 startWalk()
             }
             return
@@ -1180,7 +1080,7 @@ class CrabCharacter {
                 walkPixelX -= step
                 if walkPixelX <= walkTargetX { walkPixelX = walkTargetX; enterPause() }
             }
-            window.setFrameOrigin(NSPoint(x: walkPixelX, y: customY ?? floorY))
+            window.setFrameOrigin(NSPoint(x: walkPixelX, y: floorY))
         }
 
         updateStatusBubble()

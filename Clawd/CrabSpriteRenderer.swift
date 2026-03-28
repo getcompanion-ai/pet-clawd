@@ -27,9 +27,8 @@ class CrabSpriteRenderer {
         case sleepy = 9
         case smug = 10
         case scared = 11
-        case thinking = 12
-        case dead = 13
-        case wink = 14
+        case dead = 12
+        case wink = 13
     }
 
     private let idleData: [[Int]] = [
@@ -260,25 +259,6 @@ class CrabSpriteRenderer {
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     ]
 
-    private let thinkingData: [[Int]] = [
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-        [0,0,0,1,1,1,2,1,1,1,2,1,1,0,0,0],
-        [0,0,0,1,1,1,2,1,1,1,2,1,1,0,0,0],
-        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
-        [0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0],
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    ]
-
     private let deadData: [[Int]] = [
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -321,7 +301,7 @@ class CrabSpriteRenderer {
         let allFrames = [
             idleData, walkAData, walkBData, blinkData,
             happyData, surprisedData, angryData, sadData, loveData,
-            sleepyData, smugData, scaredData, thinkingData, deadData, winkData,
+            sleepyData, smugData, scaredData, deadData, winkData,
         ]
         for data in allFrames {
             frameImages.append(renderFrame(data))
