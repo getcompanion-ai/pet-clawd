@@ -69,9 +69,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: 30)
         if let button = statusItem?.button {
-            button.image = renderMenuBarCrab()
+            button.wantsLayer = true
+            let crabLayer = CALayer()
+            crabLayer.contents = renderMenuBarCrab().cgImage(forProposedRect: nil, context: nil, hints: nil)
+            crabLayer.magnificationFilter = .nearest
+            crabLayer.frame = CGRect(x: 3, y: 2, width: 24, height: 18)
+            button.layer?.addSublayer(crabLayer)
         }
 
         let menu = NSMenu()
@@ -119,23 +124,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func renderMenuBarCrab() -> NSImage {
         let grid: [[Int]] = [
-            [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
-            [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
-            [0,0,1,1,2,2,1,1,2,2,1,1,0,0],
-            [0,0,1,1,2,2,1,1,2,2,1,1,0,0],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
-            [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
-            [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
+            [0,1,1,1,1,1,1,0],
+            [0,1,2,1,1,2,1,0],
+            [1,1,1,1,1,1,1,1],
+            [0,1,1,1,1,1,1,0],
+            [0,0,1,0,0,1,0,0],
         ]
         let rows = grid.count
         let cols = grid[0].count
-        let pxSize = 44
-        let pxW = pxSize / cols
-        let pxH = pxSize / rows
-        let imgW = cols * pxW
-        let imgH = rows * pxH
+        let px = 8
+        let imgW = cols * px
+        let imgH = rows * px
 
         guard let ctx = CGContext(
             data: nil, width: imgW, height: imgH,
@@ -157,13 +156,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 } else {
                     ctx.setFillColor(red: 0.176, green: 0.176, blue: 0.176, alpha: 1)
                 }
-                ctx.fill(CGRect(x: col * pxW, y: flippedRow * pxH, width: pxW, height: pxH))
+                ctx.fill(CGRect(x: col * px, y: flippedRow * px, width: px, height: px))
             }
         }
         guard let cgImage = ctx.makeImage() else {
             return NSImage(systemSymbolName: "ladybug.fill", accessibilityDescription: "Clawd")!
         }
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: 22, height: 22))
+        let ptH: CGFloat = 18
+        let ptW = ptH * CGFloat(imgW) / CGFloat(imgH)
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: ptW, height: ptH))
         return image
     }
 
