@@ -13,12 +13,55 @@ struct ClawdApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var controller: ClawdController?
     var statusItem: NSStatusItem?
+    var eventTap: CFMachPort?
+    var localHotkeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         controller = ClawdController()
         controller?.start()
         setupMenuBar()
+        registerHotkey()
+    }
+
+    func registerHotkey() {
+        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+
+        let callback: CGEventTapCallBack = { proxy, type, event, refcon -> Unmanaged<CGEvent>? in
+            guard type == .keyDown else { return Unmanaged.passRetained(event) }
+            let flags = event.flags
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            if flags.contains(.maskControl) && keyCode == 49 {
+                let delegate = Unmanaged<AppDelegate>.fromOpaque(refcon!).takeUnretainedValue()
+                DispatchQueue.main.async { delegate.togglePopover() }
+                return nil
+            }
+            return Unmanaged.passRetained(event)
+        }
+
+        if let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: selfPtr
+        ) {
+            eventTap = tap
+            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
+    }
+
+    func togglePopover() {
+        guard let crab = controller?.crab else { return }
+        if crab.panelOpen || (crab.popoverWindow?.isVisible ?? false) {
+            crab.closePopover()
+        } else {
+            crab.openPopover()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -39,6 +82,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         toggleItem.state = .on
         menu.addItem(toggleItem)
 
+        let chatItem = NSMenuItem(title: "Open Chat", action: #selector(openChat), keyEquivalent: " ")
+        chatItem.keyEquivalentModifierMask = .control
+        menu.addItem(chatItem)
+
         let newChatItem = NSMenuItem(title: "New Chat", action: #selector(newChat), keyEquivalent: "n")
         menu.addItem(newChatItem)
 
@@ -47,6 +94,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let screenItem = NSMenuItem(title: "Screen Context", action: #selector(toggleScreenContext(_:)), keyEquivalent: "")
         screenItem.state = .on
         menu.addItem(screenItem)
+
+        let commentMenu = NSMenu()
+        let commentToggle = NSMenuItem(title: "Enabled", action: #selector(toggleComments(_:)), keyEquivalent: "")
+        commentToggle.state = .on
+        commentMenu.addItem(commentToggle)
+        commentMenu.addItem(NSMenuItem.separator())
+        for secs in [15, 30, 60, 120, 300] {
+            let label = secs < 60 ? "\(secs)s" : "\(secs / 60)m"
+            let item = NSMenuItem(title: "Every \(label)", action: #selector(setCommentInterval(_:)), keyEquivalent: "")
+            item.tag = secs
+            item.state = Int(CrabCharacter.commentInterval) == secs ? .on : .off
+            commentMenu.addItem(item)
+        }
+        let commentItem = NSMenuItem(title: "Random Comments", action: nil, keyEquivalent: "")
+        commentItem.submenu = commentMenu
+        menu.addItem(commentItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -69,19 +132,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc func toggleComments(_ sender: NSMenuItem) {
+        guard let crab = controller?.crab else { return }
+        if crab.commentTimer != nil {
+            crab.commentTimer?.invalidate()
+            crab.commentTimer = nil
+            sender.state = .off
+        } else {
+            crab.startCommentTimer()
+            sender.state = .on
+        }
+    }
+
+    @objc func setCommentInterval(_ sender: NSMenuItem) {
+        CrabCharacter.commentInterval = Double(sender.tag)
+        if let menu = sender.menu {
+            for item in menu.items where item.action == #selector(setCommentInterval(_:)) {
+                item.state = item.tag == sender.tag ? .on : .off
+            }
+        }
+        if let crab = controller?.crab, crab.commentTimer != nil {
+            crab.startCommentTimer()
+        }
+    }
+
     @objc func toggleScreenContext(_ sender: NSMenuItem) {
         ScreenContext.enabled.toggle()
         sender.state = ScreenContext.enabled ? .on : .off
     }
 
+    @objc func openChat() {
+        togglePopover()
+    }
+
     @objc func newChat() {
-        guard let crab = controller?.crab else { return }
-        crab.session?.terminate()
-        crab.session = nil
-        crab.responseText = ""
-        crab.isStreaming = false
-        crab.stopDots()
-        crab.panelHistory?.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        controller?.crab.clearConversation()
     }
 
     @objc func quitApp() {

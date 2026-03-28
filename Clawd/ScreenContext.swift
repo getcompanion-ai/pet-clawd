@@ -18,12 +18,29 @@ class ScreenContext {
             }
 
             guard FileManager.default.fileExists(atPath: path),
-                  let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+                  let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  let image = NSImage(data: data) else {
                 DispatchQueue.main.async { completion(nil) }
                 return
             }
 
-            let base64 = data.base64EncodedString()
+            let maxDim: CGFloat = 1024
+            let size = image.size
+            let scale = min(maxDim / size.width, maxDim / size.height, 1.0)
+            let newSize = NSSize(width: size.width * scale, height: size.height * scale)
+            let resized = NSImage(size: newSize)
+            resized.lockFocus()
+            image.draw(in: NSRect(origin: .zero, size: newSize))
+            resized.unlockFocus()
+
+            guard let tiff = resized.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.75]) else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+
+            let base64 = jpeg.base64EncodedString()
             DispatchQueue.main.async { completion(base64) }
         }
     }

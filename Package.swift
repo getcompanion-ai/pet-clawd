@@ -8,6 +8,9 @@ let package = Package(
         .executableTarget(
             name: "Clawd",
             path: "Clawd",
+            exclude: [
+                "Info.plist",
+            ],
             resources: [
                 .process("Assets.xcassets"),
             ],
@@ -17,6 +20,11 @@ let package = Package(
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", "Clawd/Info.plist"]),
             ]
+        ),
+        .testTarget(
+            name: "ClawdTests",
+            dependencies: ["Clawd"],
+            path: "Tests"
         ),
     ]
 )

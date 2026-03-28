@@ -20,26 +20,37 @@ class CrabCharacter {
     let accent = NSColor(red: 0.843, green: 0.467, blue: 0.341, alpha: 1.0)
 
     var panelOpen = false
-    var panelWindow: NSWindow?
-    var panelHistory: NSTextView?
-    var panelInput: NSTextField?
-
-    var pillWindow: NSWindow?
-    var pillLabel: NSTextField?
-    var pillFadeTimer: Timer?
+    var popoverWindow: NSWindow?
+    var terminalView: TerminalView?
 
     var clickOutsideMonitor: Any?
     var escapeMonitor: Any?
 
     var session: AgentSession?
-    var responseText = ""
-    var isStreaming = false
+    var isStartingSession = false
+    var currentStreamingText = ""
 
-    var dotTimer: Timer?
-    var dotCount = 0
+    var bubbleWindow: NSWindow?
+    var bubbleLabel: NSTextField?
+    var lastPhraseUpdate: CFTimeInterval = 0
+    var currentPhrase = ""
+
+    var previewWindow: NSWindow?
+    var previewTextView: NSTextView?
+    var previewFadeTimer: Timer?
+
     var isDragged = false
     var customY: CGFloat?
-
+    var tapTimes: [CFTimeInterval] = []
+    var emotionResetTimer: Timer?
+    var tapDebounceTimer: Timer?
+    var effectLayers: [CALayer] = []
+    var commentTimer: Timer?
+    var isAutoComment = false
+    static var commentInterval: Double {
+        get { UserDefaults.standard.double(forKey: "commentInterval").nonZero ?? 30 }
+        set { UserDefaults.standard.set(newValue, forKey: "commentInterval") }
+    }
 
     static let workspaceDir: URL = {
         let dir = FileManager.default.homeDirectoryForCurrentUser
@@ -48,11 +59,11 @@ class CrabCharacter {
         return dir
     }()
 
-    // MARK: - Setup
-
     var lastFloorY: CGFloat = 0
     var lastScreenLeft: CGFloat = 0
     var lastScreenWidth: CGFloat = 1440
+
+    // MARK: - Setup
 
     func setup() {
         spriteRenderer = CrabSpriteRenderer()
@@ -76,55 +87,439 @@ class CrabCharacter {
         window.contentView = host
         window.orderFrontRegardless()
         lastTick = CACurrentMediaTime()
+        startCommentTimer()
     }
+
+    // MARK: - Random Comments
+
+    func startCommentTimer() {
+        commentTimer?.invalidate()
+        commentTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+            self?.makeRandomComment()
+        }
+    }
+
+    private func scheduleNextComment() {
+        commentTimer?.invalidate()
+        let delay = Self.commentInterval
+        commentTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            self?.makeRandomComment()
+        }
+    }
+
+    private func makeRandomComment() {
+        guard !panelOpen,
+              session?.isBusy != true,
+              !isAutoComment,
+              currentStreamingText.isEmpty,
+              ScreenContext.enabled else {
+            scheduleNextComment()
+            return
+        }
+
+        if session == nil {
+            let newSession = AgentProvider.current.createSession()
+            session = newSession
+            wireSession(newSession)
+            isStartingSession = true
+            newSession.start()
+        }
+
+        ScreenContext.captureScreenshot { [weak self] screenshot in
+            guard let self = self, let img = screenshot else {
+                self?.scheduleNextComment()
+                return
+            }
+            self.isAutoComment = true
+            let seed = Int.random(in: 1000...9999)
+            self.session?.send(
+                message: "<system>[\(seed)] You're a chill friend sitting next to the user. Peek at their screen. Say one short casual sentence like you'd text a friend. Start with one emoji that fits your vibe: 😄 🥰 😮 😡 😢 😨 😏 😉</system>",
+                screenshotBase64: img
+            )
+            self.scheduleNextComment()
+        }
+    }
+
+    private var isAnimatingEmotion = false
+    private var pendingTaps = 0
 
     func handleClick() {
-        if panelOpen { closePanel() }
-        else { openPanel() }
+        if panelOpen {
+            closePopover()
+            return
+        }
+
+        let now = CACurrentMediaTime()
+        tapTimes.append(now)
+        tapTimes = tapTimes.filter { now - $0 < 5.0 }.suffix(20).map { $0 }
+
+        tapDebounceTimer?.invalidate()
+
+        if tapTimes.count >= 2 {
+            pendingTaps += 1
+            if !isAnimatingEmotion {
+                playNextEmotion()
+            }
+        } else {
+            tapDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                guard let self = self else { return }
+                if self.tapTimes.count <= 1 && !self.isAnimatingEmotion {
+                    self.tapTimes.removeAll()
+                    self.openPopover()
+                }
+            }
+        }
     }
 
-    // MARK: - Panel
+    private func playNextEmotion() {
+        guard pendingTaps > 0 else {
+            isAnimatingEmotion = false
+            return
+        }
+        pendingTaps = 0
+        isAnimatingEmotion = true
+        clearEffects()
 
-    func openPanel() {
+        let count = tapTimes.count
+        let mood: Int
+        if count <= 4 { mood = 0 }
+        else if count <= 8 { mood = 1 }
+        else { mood = 2 }
+
+        let duration: Double
+
+        switch mood {
+        case 0:
+            let pick = [playHappy, playLove, playWink].randomElement()!
+            duration = pick()
+        case 1:
+            let pick = [playSurprised, playScared, playSmug].randomElement()!
+            duration = pick()
+        default:
+            let pick = [playAngry, playDead].randomElement()!
+            duration = pick()
+        }
+
+        emotionResetTimer?.invalidate()
+        emotionResetTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.spriteRenderer.setFrame(.idle)
+            self.spriteRenderer.layer.transform = CATransform3DIdentity
+            self.spriteRenderer.layer.opacity = 1
+            self.clearEffects()
+
+            if self.pendingTaps > 0 {
+                self.playNextEmotion()
+            } else {
+                self.isAnimatingEmotion = false
+            }
+        }
+    }
+
+    private func playHappy() -> Double {
+        spriteRenderer.setFrame(.happy)
+        bounce(count: 3, height: 8)
+        showEffect(.sparkle)
+        return 1.8
+    }
+
+    private func playLove() -> Double {
+        spriteRenderer.setFrame(.love)
+        pulse(scale: 1.12, count: 2)
+        tint(.systemPink, alpha: 0.15)
+        showEffect(.heart)
+        return 2.2
+    }
+
+    private func playWink() -> Double {
+        spriteRenderer.setFrame(.wink)
+        tilt(angle: 0.15, duration: 0.2)
+        showEffect(.sparkle)
+        return 1.5
+    }
+
+    private func playSurprised() -> Double {
+        spriteRenderer.setFrame(.surprised)
+        jump(height: 14)
+        squash(scaleX: 1.2, scaleY: 0.8, duration: 0.12)
+        showEffect(.sweat)
+        return 1.6
+    }
+
+    private func playScared() -> Double {
+        spriteRenderer.setFrame(.scared)
+        tremble(intensity: 2, duration: 1.0)
+        showEffect(.sweat)
+        return 1.8
+    }
+
+    private func playSmug() -> Double {
+        spriteRenderer.setFrame(.smug)
+        tilt(angle: -0.1, duration: 0.3)
+        return 1.5
+    }
+
+    private func playAngry() -> Double {
+        spriteRenderer.setFrame(.angry)
+        shake(intensity: 5, count: 12)
+        showEffect(.angerMark)
+        return 2.2
+    }
+
+    private func playDead() -> Double {
+        spriteRenderer.setFrame(.dead)
+        let layer = spriteRenderer.layer
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.5)
+        layer.transform = CATransform3DConcat(
+            CATransform3DMakeRotation(.pi / 2, 0, 0, 1),
+            CATransform3DMakeTranslation(0, -20, 0)
+        )
+        layer.opacity = 0.4
+        CATransaction.commit()
+        showEffect(.skull)
+        return 3.0
+    }
+
+    // MARK: - Pixel Art Effects
+
+    enum EmotionEffect { case sparkle, heart, angerMark, sweat, skull }
+
+    private func showEffect(_ effect: EmotionEffect) {
+        let layer = spriteRenderer.layer
+        let s = CGFloat(spriteRenderer.scale)
+
+        switch effect {
+        case .sparkle:
+            addPixel(x: 2, y: 2, color: .white, on: layer, scale: s)
+            addPixel(x: 13, y: 3, color: .white, on: layer, scale: s)
+            addPixel(x: 3, y: 4, color: .white, on: layer, scale: s)
+        case .heart:
+            let c = NSColor.systemPink
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 4, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 4, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 5, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 4, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 4, color: c, on: layer, scale: s)
+        case .angerMark:
+            let c = NSColor(red: 0.9, green: 0.2, blue: 0.15, alpha: 1)
+            addPixel(x: 12, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 4, color: c, on: layer, scale: s)
+        case .sweat:
+            let c = NSColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1)
+            addPixel(x: 13, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 5, color: c, on: layer, scale: s)
+        case .skull:
+            let c = NSColor.white.withAlphaComponent(0.6)
+            addPixel(x: 1, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 2, color: c, on: layer, scale: s)
+        }
+    }
+
+    private func addPixel(x: Int, y: Int, color: NSColor, on parent: CALayer, scale: CGFloat) {
+        let px = CALayer()
+        let flippedY = 15 - y
+        px.frame = CGRect(x: CGFloat(x) * scale, y: CGFloat(flippedY) * scale, width: scale, height: scale)
+        px.backgroundColor = color.cgColor
+        parent.addSublayer(px)
+        effectLayers.append(px)
+    }
+
+    private func clearEffects() {
+        for l in effectLayers { l.removeFromSuperlayer() }
+        effectLayers.removeAll()
+        tintOverlay?.removeFromSuperlayer()
+        tintOverlay = nil
+    }
+
+    private var tintOverlay: CALayer?
+
+    // MARK: - Animation Primitives
+
+    private func bounce(count: Int, height: CGFloat) {
+        let origin = window.frame.origin
+        var delay = 0.0
+        for i in 0..<count {
+            let h = height * max(1.0 - CGFloat(i) * 0.25, 0.2)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.window.setFrameOrigin(NSPoint(x: origin.x, y: origin.y + h))
+            }
+            delay += 0.08
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.window.setFrameOrigin(origin)
+            }
+            delay += 0.08
+        }
+    }
+
+    private func jump(height: CGFloat) {
+        let origin = window.frame.origin
+        window.setFrameOrigin(NSPoint(x: origin.x, y: origin.y + height))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.window.setFrameOrigin(origin)
+        }
+    }
+
+    private func shake(intensity: CGFloat, count: Int) {
+        let origin = window.frame.origin
+        for i in 0..<count {
+            let dx = (i % 2 == 0 ? intensity : -intensity) * max(1.0 - CGFloat(i) / CGFloat(count), 0.1)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.035) { [weak self] in
+                self?.window.setFrameOrigin(NSPoint(x: origin.x + dx, y: origin.y))
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(count) * 0.035) { [weak self] in
+            self?.window.setFrameOrigin(origin)
+        }
+    }
+
+    private func tremble(intensity: CGFloat, duration: Double) {
+        let origin = window.frame.origin
+        let steps = Int(duration / 0.03)
+        for i in 0..<steps {
+            let dx = CGFloat.random(in: -intensity...intensity)
+            let dy = CGFloat.random(in: -intensity...intensity)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.03) { [weak self] in
+                self?.window.setFrameOrigin(NSPoint(x: origin.x + dx, y: origin.y + dy))
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            self?.window.setFrameOrigin(origin)
+        }
+    }
+
+    private func squash(scaleX: CGFloat, scaleY: CGFloat, duration: Double) {
+        let layer = spriteRenderer.layer
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(duration)
+        layer.transform = CATransform3DMakeScale(scaleX, scaleY, 1)
+        CATransaction.commit()
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(duration * 1.5)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+            layer.transform = CATransform3DIdentity
+            CATransaction.commit()
+        }
+    }
+
+    private func pulse(scale: CGFloat, count: Int) {
+        let layer = spriteRenderer.layer
+        let anim = CABasicAnimation(keyPath: "transform.scale")
+        anim.fromValue = 1.0
+        anim.toValue = scale
+        anim.duration = 0.25
+        anim.autoreverses = true
+        anim.repeatCount = Float(count)
+        anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(anim, forKey: "pulse")
+    }
+
+    private func tilt(angle: CGFloat, duration: Double) {
+        let layer = spriteRenderer.layer
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(duration)
+        layer.transform = CATransform3DMakeRotation(angle, 0, 0, 1)
+        CATransaction.commit()
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.3) {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(duration)
+            layer.transform = CATransform3DIdentity
+            CATransaction.commit()
+        }
+    }
+
+    private func tint(_ color: NSColor, alpha: CGFloat) {
+        tintOverlay?.removeFromSuperlayer()
+        let overlay = CALayer()
+        overlay.frame = spriteRenderer.layer.bounds
+        overlay.backgroundColor = color.withAlphaComponent(alpha).cgColor
+        spriteRenderer.layer.addSublayer(overlay)
+        tintOverlay = overlay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.tintOverlay?.removeFromSuperlayer()
+            self?.tintOverlay = nil
+        }
+    }
+
+    // MARK: - Popover
+
+    func openPopover() {
         panelOpen = true
         isWalking = false
         isPaused = true
         spriteRenderer.stopWalkAnimation()
-        hidePill()
+        hideBubble()
+        hidePreview()
 
-        if panelWindow == nil { createPanel() }
-        positionPanel()
-        panelWindow?.orderFrontRegardless()
-        panelWindow?.makeKey()
-        panelWindow?.makeFirstResponder(panelInput)
-        panelHistory?.scrollToEndOfDocument(nil)
+        if session == nil {
+            let newSession = AgentProvider.current.createSession()
+            session = newSession
+            wireSession(newSession)
+            isStartingSession = true
+            newSession.start()
+        }
+
+        if popoverWindow == nil { createPopover() }
+
+        if let terminal = terminalView, let session = session, !session.history.isEmpty {
+            terminal.replayHistory(session.history)
+        }
+
+        positionPopover()
+        popoverWindow?.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+        popoverWindow?.makeKey()
+        popoverWindow?.makeFirstResponder(terminalView?.inputField)
 
         removeMonitors()
         clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self = self else { return }
             let mouse = NSEvent.mouseLocation
-            let inPanel = self.panelWindow?.frame.contains(mouse) ?? false
+            let inPanel = self.popoverWindow?.frame.contains(mouse) ?? false
             let inChar = self.window.frame.contains(mouse)
-            if !inPanel && !inChar { self.closePanel() }
+            if !inPanel && !inChar { self.closePopover() }
         }
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 { self?.closePanel(); return nil }
+            if event.keyCode == 53 { self?.closePopover(); return nil }
             return event
         }
     }
 
-    func closePanel() {
+    func closePopover() {
         guard panelOpen else { return }
-        panelWindow?.orderOut(nil)
+        popoverWindow?.orderOut(nil)
         removeMonitors()
         panelOpen = false
+
+        if session?.isBusy == true {
+            currentPhrase = ""
+            lastPhraseUpdate = 0
+        }
+
         pauseEndTime = CACurrentMediaTime() + Double.random(in: 2.0...4.0)
     }
 
-    func createPanel() {
-        let w: CGFloat = 320
-        let h: CGFloat = 300
-        let inputH: CGFloat = 42
+    func createPopover() {
+        let w: CGFloat = 300
+        let h: CGFloat = 240
 
         let win = KeyableWindow(contentRect: CGRect(x: 0, y: 0, width: w, height: h),
                                 styleMask: .borderless, backing: .buffered, defer: false)
@@ -134,284 +529,145 @@ class CrabCharacter {
         win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 10)
         win.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
-        let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: w, height: h))
-        blur.material = .popover
-        blur.state = .active
-        blur.wantsLayer = true
-        blur.layer?.cornerRadius = 14
-        blur.layer?.masksToBounds = true
+        let body = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
+        body.wantsLayer = true
+        body.layer?.backgroundColor = PetTheme.paper.cgColor
+        body.layer?.cornerRadius = 18
+        body.layer?.masksToBounds = true
 
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: inputH, width: w, height: h - inputH))
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.drawsBackground = false
-        scroll.borderType = .noBorder
-        scroll.scrollerStyle = .overlay
+        let terminal = TerminalView(frame: body.bounds, accentColor: accent)
+        terminal.autoresizingMask = [.width, .height]
+        terminal.onSendMessage = { [weak self] message in
+            self?.sendMessage(message)
+        }
+        body.addSubview(terminal)
 
-        let tv = NSTextView(frame: scroll.contentView.bounds)
-        tv.isEditable = false
-        tv.isSelectable = true
-        tv.drawsBackground = false
-        tv.textContainerInset = NSSize(width: 12, height: 12)
-        tv.autoresizingMask = [.width]
-        scroll.documentView = tv
-        blur.addSubview(scroll)
-
-        let field = NSTextField(frame: NSRect(x: 14, y: 10, width: w - 46, height: 22))
-        field.font = .systemFont(ofSize: 13)
-        field.placeholderString = "Ask anything..."
-        field.isBordered = false
-        field.drawsBackground = false
-        field.focusRingType = .none
-        field.cell?.wraps = false
-        field.cell?.isScrollable = true
-        field.target = self
-        field.action = #selector(handleSend)
-        blur.addSubview(field)
-
-        let btn = NSButton(frame: NSRect(x: w - 30, y: 11, width: 20, height: 20))
-        btn.bezelStyle = .inline
-        btn.isBordered = false
-        btn.contentTintColor = accent
-        btn.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: "Send")
-        btn.imageScaling = .scaleProportionallyUpOrDown
-        btn.target = self
-        btn.action = #selector(handleSend)
-        blur.addSubview(btn)
-
-        win.contentView = blur
-        panelWindow = win
-        panelHistory = tv
-        panelInput = field
+        win.contentView = body
+        popoverWindow = win
+        terminalView = terminal
     }
 
-    func positionPanel() {
-        guard let win = panelWindow, let screen = NSScreen.main else { return }
+    func positionPopover() {
+        guard let win = popoverWindow, let screen = NSScreen.main else { return }
         let cf = window.frame
         var x = cf.midX - win.frame.width / 2
-        let y = cf.maxY + 8
+        let y = cf.maxY + 2
         x = max(screen.frame.minX + 4, min(x, screen.frame.maxX - win.frame.width - 4))
         win.setFrameOrigin(NSPoint(x: x, y: min(y, screen.frame.maxY - win.frame.height - 4)))
     }
 
     // MARK: - Send
 
-    @objc func handleSend() {
-        guard let text = panelInput?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
-              !text.isEmpty else { return }
-        panelInput?.stringValue = ""
-        panelInput?.isEnabled = false
-
-        appendUser(text)
+    private func sendMessage(_ text: String) {
+        terminalView?.appendUser(text)
+        terminalView?.showThinking()
 
         if session == nil {
-            let s = ClaudeSession()
-            session = s
-            wireSession(s)
-            s.start()
+            let newSession = AgentProvider.current.createSession()
+            session = newSession
+            wireSession(newSession)
+            isStartingSession = true
+            newSession.start()
         }
 
-        startDots()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            guard let self = self else { return }
-            if ScreenContext.enabled {
-                ScreenContext.captureScreenshot { [weak self] base64 in
-                    self?.session?.send(message: text, screenshotBase64: base64)
-                }
-            } else {
-                self.session?.send(message: text, screenshotBase64: nil)
-            }
-        }
-    }
-
-    // MARK: - Panel rendering
-
-    private func appendUser(_ text: String) {
-        guard let tv = panelHistory, let storage = tv.textStorage else { return }
-
-        let font = NSFont.systemFont(ofSize: 13)
-        let maxW: CGFloat = 200
-        let hPad: CGFloat = 12
-        let vPad: CGFloat = 8
-        let drawAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.white]
-        let textRect = (text as NSString).boundingRect(
-            with: NSSize(width: maxW, height: 10000),
-            options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: drawAttrs)
-        let bw = ceil(textRect.width) + hPad * 2
-        let bh = ceil(textRect.height) + vPad * 2
-
-        let img = NSImage(size: NSSize(width: bw, height: bh), flipped: true) { rect in
-            let path = NSBezierPath(roundedRect: rect, xRadius: 16, yRadius: 16)
-            NSColor(red: 0.843, green: 0.467, blue: 0.341, alpha: 1.0).setFill()
-            path.fill()
-            (text as NSString).draw(with: NSRect(x: hPad, y: vPad, width: maxW, height: bh),
-                                    options: [.usesLineFragmentOrigin], attributes: drawAttrs)
-            return true
+        let sendToSession: (String?) -> Void = { [weak self] screenshot in
+            self?.session?.send(message: text, screenshotBase64: screenshot)
         }
 
-        let attachment = NSTextAttachment()
-        attachment.attachmentCell = NSTextAttachmentCell(imageCell: img)
-        let para = NSMutableParagraphStyle()
-        para.alignment = .right
-        para.paragraphSpacing = 8
-        let line = NSMutableAttributedString(attachment: attachment)
-        line.append(NSAttributedString(string: "\n"))
-        line.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: line.length))
-        storage.append(line)
-        tv.scrollToEndOfDocument(nil)
-    }
-
-    private func appendAIText(_ text: String) {
-        guard let tv = panelHistory else { return }
-        let para = NSMutableParagraphStyle()
-        para.alignment = .left
-        para.lineSpacing = 2
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: NSColor.labelColor,
-            .paragraphStyle: para,
-        ]
-        tv.textStorage?.append(NSAttributedString(string: text, attributes: attrs))
-        tv.scrollToEndOfDocument(nil)
-    }
-
-    // MARK: - Thinking bubble
-
-    var thinkingBubble: NSWindow?
-    var thinkingLabel: NSTextField?
-
-    func startDots() {
-        dotCount = 0
-        if panelOpen { appendAIText("...") }
-        showThinkingBubble()
-        dotTimer?.invalidate()
-        dotTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.dotCount = (self.dotCount + 1) % 3
-            self.thinkingLabel?.stringValue = String(repeating: ".", count: self.dotCount + 1)
-            self.positionThinkingBubble()
+        if ScreenContext.enabled {
+            ScreenContext.captureScreenshot(completion: sendToSession)
+        } else {
+            sendToSession(nil)
         }
-    }
-
-    func stopDots() {
-        dotTimer?.invalidate()
-        dotTimer = nil
-        thinkingBubble?.orderOut(nil)
-    }
-
-    func showThinkingBubble() {
-        if thinkingBubble == nil {
-            let w: CGFloat = 44
-            let h: CGFloat = 28
-            let win = NSWindow(contentRect: CGRect(x: 0, y: 0, width: w, height: h),
-                               styleMask: .borderless, backing: .buffered, defer: false)
-            win.isOpaque = false
-            win.backgroundColor = .clear
-            win.hasShadow = true
-            win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 3)
-            win.ignoresMouseEvents = true
-            win.collectionBehavior = [.canJoinAllSpaces, .stationary]
-
-            let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: w, height: h))
-            blur.material = .popover
-            blur.state = .active
-            blur.wantsLayer = true
-            blur.layer?.cornerRadius = h / 2
-            blur.layer?.masksToBounds = true
-
-            let label = NSTextField(labelWithString: "...")
-            label.font = .systemFont(ofSize: 14, weight: .bold)
-            label.textColor = .secondaryLabelColor
-            label.alignment = .center
-            label.frame = NSRect(x: 0, y: 4, width: w, height: 18)
-            blur.addSubview(label)
-
-            win.contentView = blur
-            thinkingBubble = win
-            thinkingLabel = label
-        }
-        positionThinkingBubble()
-        thinkingBubble?.orderFrontRegardless()
-    }
-
-    func positionThinkingBubble() {
-        guard let tb = thinkingBubble else { return }
-        let cf = window.frame
-        let bw = tb.frame.width
-        tb.setFrameOrigin(NSPoint(x: cf.midX - bw / 2, y: cf.maxY + 4))
     }
 
     // MARK: - Session
 
     func wireSession(_ s: AgentSession) {
+        s.onSessionReady = { [weak self] in
+            self?.isStartingSession = false
+        }
+
         s.onText = { [weak self] delta in
             guard let self = self else { return }
-
-            if !self.isStreaming {
-                self.isStreaming = true
-                self.stopDots()
-                if self.panelOpen, let storage = self.panelHistory?.textStorage {
-                    let s = storage.string
-                    if s.hasSuffix("...\n") || s.hasSuffix("...") || s.hasSuffix("..\n") || s.hasSuffix(".\n") {
-                        var removeFrom = storage.length
-                        let chars = Array(s)
-                        while removeFrom > 0 && (chars[removeFrom - 1] == "." || chars[removeFrom - 1] == "\n") {
-                            removeFrom -= 1
-                        }
-                        if removeFrom < storage.length {
-                            storage.deleteCharacters(in: NSRange(location: removeFrom, length: storage.length - removeFrom))
-                        }
-                    }
-                }
+            if self.currentStreamingText.isEmpty && !self.isAutoComment {
+                self.terminalView?.removeThinking()
             }
+            self.currentStreamingText += delta
 
-            self.responseText += delta
+            if self.isAutoComment { return }
 
-            if self.panelOpen {
-                self.appendAIText(delta)
-            } else {
-                self.showPillText(self.responseText, autoFade: false)
+            self.terminalView?.appendStreamingText(delta)
+            if !self.panelOpen {
+                self.appendToPreview(delta)
             }
         }
 
         s.onTurnComplete = { [weak self] in
             guard let self = self else { return }
-            self.stopDots()
-            self.isStreaming = false
+            let finalText = self.currentStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let wasAuto = self.isAutoComment
+            self.isAutoComment = false
+            self.currentStreamingText = ""
 
-            if self.panelOpen {
-                self.appendAIText("\n\n")
-            } else if !self.responseText.isEmpty {
-                self.showPillText(self.responseText, autoFade: true)
+            if wasAuto {
+                if !finalText.isEmpty {
+                    let (emoji, comment) = self.parseEmotion(finalText)
+                    self.showEmotion(emoji, forText: comment)
+                    self.showPreview(comment, autoFade: true)
+                    let display = emoji.isEmpty ? comment : "\(emoji) \(comment)"
+                    self.terminalView?.appendProactive(display)
+                    if let session = self.session,
+                       let lastIdx = session.history.indices.last,
+                       session.history[lastIdx].role == .assistant {
+                        session.history[lastIdx] = ChatMessage(role: .assistant, text: comment)
+                    }
+                }
+                return
             }
 
-            self.responseText = ""
-            self.panelInput?.isEnabled = true
-            if self.panelOpen {
-                self.panelWindow?.makeFirstResponder(self.panelInput)
+            self.terminalView?.endStreaming()
+            if !self.panelOpen && !finalText.isEmpty {
+                self.showPreview(finalText, autoFade: true)
             }
+            self.hideBubble()
         }
 
         s.onError = { [weak self] text in
-            self?.stopDots()
-            self?.isStreaming = false
-            if self?.panelOpen == true {
-                self?.appendAIText(text + "\n\n")
-            } else {
-                self?.showPillText(text, autoFade: true)
+            self?.terminalView?.removeThinking()
+            self?.terminalView?.appendError(text)
+            self?.isStartingSession = false
+            if self?.session?.isRunning == false {
+                self?.session = nil
             }
-            self?.responseText = ""
-            self?.panelInput?.isEnabled = true
         }
 
-        s.onToolUse = { _, _ in }
-        s.onToolResult = { _, _ in }
-        s.onProcessExit = { [weak self] in
-            self?.stopDots()
-            self?.isStreaming = false
-            self?.panelInput?.isEnabled = true
+        s.onToolUse = { [weak self] name, input in
+            let summary = ClaudeSession.formatToolSummary(name: name, input: input)
+            self?.terminalView?.appendToolUse(summary)
         }
+
+        s.onToolResult = { [weak self] summary, isError in
+            self?.terminalView?.appendToolResult(summary, isError: isError)
+        }
+
+        s.onProcessExit = { [weak self] in
+            self?.terminalView?.removeThinking()
+            self?.terminalView?.endStreaming()
+            self?.terminalView?.appendError("Session ended.")
+            self?.isStartingSession = false
+            self?.session = nil
+        }
+    }
+
+    func clearConversation() {
+        session?.terminate()
+        session = nil
+        isStartingSession = false
+        currentStreamingText = ""
+        terminalView?.clear()
+        hideBubble()
+        hidePreview()
     }
 
     private func removeMonitors() {
@@ -419,84 +675,334 @@ class CrabCharacter {
         if let m = escapeMonitor { NSEvent.removeMonitor(m); escapeMonitor = nil }
     }
 
-    // MARK: - Pill
+    // MARK: - Emotions
 
-    func showPillText(_ text: String, autoFade: Bool) {
-        pillFadeTimer?.invalidate()
-        pillFadeTimer = nil
-        if pillWindow == nil { createPill() }
-        guard let label = pillLabel, let pill = pillWindow else { return }
+    private static let emojiMap: [(String, CrabSpriteRenderer.Frame)] = [
+        ("😄", .happy), ("😊", .happy), ("🥰", .love), ("😮", .surprised),
+        ("😡", .angry), ("😢", .sad), ("😨", .scared), ("🤢", .angry),
+        ("😏", .smug), ("😉", .wink), ("😴", .sleepy), ("🫥", .idle),
+    ]
 
-        label.stringValue = text
-        label.preferredMaxLayoutWidth = 270
-        let fit = label.fittingSize
-        let pw = min(max(fit.width + 24, 60), 300)
-        let ph = min(fit.height + 16, 160)
-
-        let cf = window.frame
-        var x = cf.midX - pw / 2
-        if let s = NSScreen.main { x = max(s.frame.minX + 4, min(x, s.frame.maxX - pw - 4)) }
-
-        pill.setFrame(CGRect(x: x, y: cf.maxY + 6, width: pw, height: ph), display: true)
-        label.frame = NSRect(x: 12, y: 8, width: pw - 24, height: ph - 16)
-        if let blur = pill.contentView as? NSVisualEffectView {
-            blur.frame = NSRect(x: 0, y: 0, width: pw, height: ph)
-        }
-        pill.alphaValue = 1
-        pill.orderFrontRegardless()
-
-        if autoFade {
-            let dur = max(4.0, min(Double(text.count) * 0.05, 12.0))
-            pillFadeTimer = Timer.scheduledTimer(withTimeInterval: dur, repeats: false) { [weak self] _ in
-                NSAnimationContext.runAnimationGroup({ ctx in
-                    ctx.duration = 0.4
-                    self?.pillWindow?.animator().alphaValue = 0
-                }, completionHandler: { self?.pillWindow?.orderOut(nil) })
+    private func parseEmotion(_ text: String) -> (String, String) {
+        for (emoji, _) in Self.emojiMap {
+            if text.hasPrefix(emoji) {
+                let rest = String(text.dropFirst(emoji.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                return (emoji, rest.isEmpty ? text : rest)
             }
         }
+        return ("", text)
     }
 
-    func hidePill() {
-        pillFadeTimer?.invalidate()
-        pillFadeTimer = nil
-        pillWindow?.orderOut(nil)
+    private func showEmotion(_ emoji: String, forText text: String = "") {
+        clearEffects()
+        let frame = Self.emojiMap.first(where: { $0.0 == emoji })?.1 ?? .idle
+        spriteRenderer.setFrame(frame)
+
+        switch frame {
+        case .happy: bounce(count: 2, height: 6); showEffect(.sparkle)
+        case .love: pulse(scale: 1.1, count: 2); showEffect(.heart)
+        case .surprised: jump(height: 12)
+        case .angry: shake(intensity: 5, count: 10); showEffect(.angerMark)
+        case .sad: showEffect(.sweat)
+        case .scared: tremble(intensity: 2, duration: 0.8); showEffect(.sweat)
+        case .smug: tilt(angle: -0.1, duration: 0.3)
+        case .wink: tilt(angle: 0.15, duration: 0.2)
+        default: break
+        }
+        let words = text.split(separator: " ").count
+        let dur = max(2.0, min(Double(words) * 0.8 + 1.5, 18.0))
+        DispatchQueue.main.asyncAfter(deadline: .now() + dur) { [weak self] in
+            guard let self = self, !self.isWalking else { return }
+            self.spriteRenderer.setFrame(.idle)
+            self.spriteRenderer.layer.transform = CATransform3DIdentity
+            self.spriteRenderer.layer.opacity = 1
+            self.clearEffects()
+        }
     }
 
-    func createPill() {
-        let win = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 100, height: 40),
+    // MARK: - Status Bubble (thinking phrases)
+
+    private static let thinkPhrases = [
+        "Thinking", "Pondering", "Reasoning", "Composing", "Computing",
+        "Crafting", "Generating", "Imagining", "Mapping", "Mulling",
+        "Synthesizing", "Processing", "Connecting", "Considering",
+        "Contemplating", "Working", "Brewing", "Noodling", "Ruminating",
+        "Percolating", "Simmering", "Marinating", "Hatching", "Tinkering",
+        "Cogitating", "Ideating", "Musing", "Puzzling", "Orchestrating",
+        "Deciphering", "Crystallizing", "Fermenting", "Incubating",
+        "Forging", "Manifesting", "Crunching", "Calculating",
+        "Cerebrating", "Zigzagging", "Caramelizing", "Booping",
+        "Befuddling", "Finagling", "Canoodling", "Discombobulating",
+        "Bloviating", "Boogieing", "Boondoggling", "Catapulting",
+        "Transmuting", "Spinning", "Envisioning", "Burrowing",
+    ]
+
+    func updateStatusBubble() {
+        let now = CACurrentMediaTime()
+
+        if session?.isBusy == true && !panelOpen && !isAutoComment && currentStreamingText.isEmpty {
+            if currentPhrase.isEmpty || now - lastPhraseUpdate > Double.random(in: 3.0...5.0) {
+                var next = Self.thinkPhrases.randomElement() ?? "..."
+                while next == currentPhrase && Self.thinkPhrases.count > 1 {
+                    next = Self.thinkPhrases.randomElement() ?? "..."
+                }
+                currentPhrase = next
+                lastPhraseUpdate = now
+            }
+            showBubble(text: currentPhrase)
+        } else {
+            hideBubble()
+        }
+    }
+
+    func showBubble(text: String) {
+        if bubbleWindow == nil { createBubble() }
+        guard let win = bubbleWindow, let label = bubbleLabel else { return }
+
+        let font = PetFonts.rounded(size: 11, weight: .semibold)
+        let textSize = (text as NSString).size(withAttributes: [.font: font])
+        let bw = max(ceil(textSize.width) + 24, 48)
+        let bh: CGFloat = 26
+
+        let cf = window.frame
+        let x = cf.midX - bw / 2
+        let y = cf.maxY + 4
+        win.setFrame(CGRect(x: x, y: y, width: bw, height: bh), display: false)
+
+        if let container = win.contentView {
+            container.frame = NSRect(x: 0, y: 0, width: bw, height: bh)
+            label.stringValue = text
+            label.font = font
+            label.frame = NSRect(x: 0, y: 4, width: bw, height: 18)
+        }
+
+        if !win.isVisible {
+            win.alphaValue = 1.0
+            win.orderFrontRegardless()
+        }
+    }
+
+    func hideBubble() {
+        bubbleWindow?.orderOut(nil)
+        currentPhrase = ""
+    }
+
+    func createBubble() {
+        let w: CGFloat = 80
+        let h: CGFloat = 26
+        let win = NSWindow(contentRect: CGRect(x: 0, y: 0, width: w, height: h),
                            styleMask: .borderless, backing: .buffered, defer: false)
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = true
         win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 5)
+        win.ignoresMouseEvents = true
+        win.collectionBehavior = [.canJoinAllSpaces, .stationary]
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
+        container.wantsLayer = true
+        container.layer?.backgroundColor = PetTheme.paper.withAlphaComponent(0.95).cgColor
+        container.layer?.cornerRadius = h / 2
+        container.layer?.masksToBounds = true
+
+        let label = NSTextField(labelWithString: "")
+        label.font = PetFonts.rounded(size: 11, weight: .semibold)
+        label.textColor = PetTheme.ink.withAlphaComponent(0.5)
+        label.alignment = .center
+        label.frame = NSRect(x: 0, y: 4, width: w, height: 18)
+        container.addSubview(label)
+
+        win.contentView = container
+        bubbleWindow = win
+        bubbleLabel = label
+    }
+
+    // MARK: - Response Preview
+
+    private let previewW: CGFloat = 260
+    private let previewPad: CGFloat = 10
+
+    private func layoutPreview() {
+        guard let tv = previewTextView, let win = previewWindow else { return }
+        let innerW = previewW - previewPad * 2
+        tv.textContainer?.containerSize = NSSize(width: innerW, height: .greatestFiniteMagnitude)
+        tv.layoutManager?.ensureLayout(for: tv.textContainer!)
+        let used = tv.layoutManager!.usedRect(for: tv.textContainer!)
+        let textH = ceil(used.height) + 8
+        let ph = max(textH + previewPad * 2, 34)
+
+        let cf = window.frame
+        var x = cf.midX - previewW / 2
+        if let s = NSScreen.main { x = max(s.frame.minX + 4, min(x, s.frame.maxX - previewW - 4)) }
+
+        win.setFrame(CGRect(x: x, y: cf.maxY + 6, width: previewW, height: ph), display: true)
+        tv.frame = NSRect(x: previewPad, y: previewPad, width: innerW, height: textH)
+    }
+
+    func appendToPreview(_ delta: String) {
+        hideBubble()
+        if previewWindow == nil { createPreview() }
+        guard let tv = previewTextView, let win = previewWindow else { return }
+
+        tv.textStorage?.append(NSAttributedString(string: delta, attributes: [
+            .font: PetFonts.rounded(size: 13, weight: .regular),
+            .foregroundColor: PetTheme.ink
+        ]))
+        layoutPreview()
+
+        if !win.isVisible {
+            win.alphaValue = 1
+            win.orderFrontRegardless()
+        }
+    }
+
+    func showPreview(_ text: String, autoFade: Bool) {
+        previewFadeTimer?.invalidate()
+        previewFadeTimer = nil
+        hideBubble()
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        if previewWindow == nil { createPreview() }
+        guard let tv = previewTextView, let win = previewWindow else { return }
+
+        tv.textStorage?.setAttributedString(renderPreviewMarkdown(trimmed))
+        layoutPreview()
+
+        win.alphaValue = 1
+        win.orderFrontRegardless()
+
+        if autoFade {
+            let words = trimmed.split(separator: " ").count
+            let dur = max(3.0, min(Double(words) * 0.8 + 2.0, 20.0))
+            previewFadeTimer = Timer.scheduledTimer(withTimeInterval: dur, repeats: false) { [weak self] _ in
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.5
+                    self?.previewWindow?.animator().alphaValue = 0
+                }, completionHandler: { self?.previewWindow?.orderOut(nil) })
+            }
+        }
+    }
+
+    private func renderPreviewMarkdown(_ text: String) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let font = PetFonts.rounded(size: 13, weight: .regular)
+        let boldFont = PetFonts.rounded(size: 13, weight: .bold)
+        let codeFont = PetFonts.mono(size: 12, weight: .regular)
+        let lines = text.components(separatedBy: "\n")
+        var inCodeBlock = false
+        var codeLines: [String] = []
+
+        for (i, line) in lines.enumerated() {
+            let suffix = i < lines.count - 1 ? "\n" : ""
+
+            if line.hasPrefix("```") {
+                if inCodeBlock {
+                    let code = codeLines.joined(separator: "\n")
+                    result.append(NSAttributedString(string: code + "\n", attributes: [
+                        .font: codeFont, .foregroundColor: PetTheme.ink,
+                        .backgroundColor: PetTheme.milk
+                    ]))
+                    inCodeBlock = false
+                    codeLines = []
+                } else {
+                    inCodeBlock = true
+                }
+                continue
+            }
+
+            if inCodeBlock { codeLines.append(line); continue }
+
+            if line.hasPrefix("# ") {
+                result.append(NSAttributedString(string: String(line.dropFirst(2)) + suffix, attributes: [
+                    .font: PetFonts.rounded(size: 14, weight: .bold), .foregroundColor: accent
+                ]))
+            } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
+                result.append(NSAttributedString(string: "  \u{2022} " + String(line.dropFirst(2)) + suffix, attributes: [
+                    .font: font, .foregroundColor: PetTheme.ink
+                ]))
+            } else {
+                result.append(renderInline(line + suffix, font: font, boldFont: boldFont, codeFont: codeFont))
+            }
+        }
+
+        if inCodeBlock && !codeLines.isEmpty {
+            result.append(NSAttributedString(string: codeLines.joined(separator: "\n") + "\n", attributes: [
+                .font: codeFont, .foregroundColor: PetTheme.ink, .backgroundColor: PetTheme.milk
+            ]))
+        }
+
+        return result
+    }
+
+    private func renderInline(_ text: String, font: NSFont, boldFont: NSFont, codeFont: NSFont) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        var i = text.startIndex
+        while i < text.endIndex {
+            if text[i] == "`" {
+                let after = text.index(after: i)
+                if after < text.endIndex, let close = text[after...].firstIndex(of: "`") {
+                    result.append(NSAttributedString(string: String(text[after..<close]), attributes: [
+                        .font: codeFont, .foregroundColor: accent, .backgroundColor: PetTheme.milk
+                    ]))
+                    i = text.index(after: close); continue
+                }
+            }
+            if text[i] == "*", text.index(after: i) < text.endIndex, text[text.index(after: i)] == "*" {
+                let start = text.index(i, offsetBy: 2)
+                if start < text.endIndex, let range = text.range(of: "**", range: start..<text.endIndex) {
+                    result.append(NSAttributedString(string: String(text[start..<range.lowerBound]), attributes: [
+                        .font: boldFont, .foregroundColor: PetTheme.ink
+                    ]))
+                    i = range.upperBound; continue
+                }
+            }
+            result.append(NSAttributedString(string: String(text[i]), attributes: [
+                .font: font, .foregroundColor: PetTheme.ink
+            ]))
+            i = text.index(after: i)
+        }
+        return result
+    }
+
+    func hidePreview() {
+        previewFadeTimer?.invalidate()
+        previewFadeTimer = nil
+        previewWindow?.orderOut(nil)
+    }
+
+    func createPreview() {
+        let pw: CGFloat = 260
+        let ph: CGFloat = 40
+
+        let win = NSWindow(contentRect: CGRect(x: 0, y: 0, width: pw, height: ph),
+                           styleMask: .borderless, backing: .buffered, defer: false)
+        win.isOpaque = false
+        win.backgroundColor = .clear
+        win.hasShadow = false
+        win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 5)
         win.ignoresMouseEvents = false
         win.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
-        let blur = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 100, height: 40))
-        blur.material = .popover
-        blur.state = .active
-        blur.wantsLayer = true
-        blur.layer?.cornerRadius = 12
-        blur.layer?.masksToBounds = true
+        let card = PreviewCardView(frame: NSRect(x: 0, y: 0, width: pw, height: ph))
+        card.onTap = { [weak self] in self?.hidePreview() }
 
-        let label = NSTextField(wrappingLabelWithString: "")
-        label.font = .systemFont(ofSize: 13)
-        label.textColor = .labelColor
-        label.isEditable = false
-        label.isSelectable = true
-        label.drawsBackground = false
-        label.isBordered = false
-        label.maximumNumberOfLines = 0
-        blur.addSubview(label)
+        let tv = NSTextView(frame: NSRect(x: 10, y: 10, width: pw - 20, height: ph - 20))
+        tv.isEditable = false
+        tv.isSelectable = false
+        tv.backgroundColor = .clear
+        tv.isRichText = true
+        tv.textContainerInset = NSSize(width: 0, height: 0)
+        tv.textContainer?.lineFragmentPadding = 0
+        tv.textContainer?.widthTracksTextView = false
+        tv.isVerticallyResizable = false
+        tv.isHorizontallyResizable = false
+        card.addSubview(tv)
 
-        let click = BubbleClickView(frame: blur.bounds)
-        click.autoresizingMask = [.width, .height]
-        click.onTap = { [weak self] in self?.hidePill(); self?.openPanel() }
-        blur.addSubview(click)
-
-        win.contentView = blur
-        pillWindow = win
-        pillLabel = label
+        win.contentView = card
+        previewWindow = win
+        previewTextView = tv
     }
 
     // MARK: - Drag & Snap
@@ -523,7 +1029,6 @@ class CrabCharacter {
 
     func throwWithVelocity(vx: CGFloat, vy: CGFloat) {
         fallTargetY = lastFloorY
-
         let scale: CGFloat = 0.8
         velX = vx * scale
         velY = vy * scale
@@ -543,7 +1048,6 @@ class CrabCharacter {
     func startWalk() {
         let cf = window.frame
         let curX = cf.origin.x
-
         let margin: CGFloat = 10
         let leftEdge = lastScreenLeft + margin
         let rightEdge = lastScreenLeft + lastScreenWidth - displaySize - margin
@@ -610,10 +1114,8 @@ class CrabCharacter {
         if isFalling {
             fallTargetY = floorY
             let dtF = CGFloat(dt)
-
             velY -= gravity * dtF
             velX *= friction
-
             var curX = window.frame.origin.x + velX * dtF
             var curY = window.frame.origin.y + velY * dtF
 
@@ -621,7 +1123,6 @@ class CrabCharacter {
                 let minX = screen.frame.minX
                 let maxX = screen.frame.maxX - displaySize
                 let maxY = screen.frame.maxY - displaySize
-
                 if curX < minX { curX = minX; velX = -velX * restitution }
                 if curX > maxX { curX = maxX; velX = -velX * restitution }
                 if curY > maxY { curY = maxY; velY = -abs(velY) * restitution }
@@ -649,7 +1150,7 @@ class CrabCharacter {
 
         if panelOpen {
             window.setFrameOrigin(NSPoint(x: window.frame.origin.x, y: customY ?? floorY))
-            positionPanel()
+            positionPopover()
             return
         }
 
@@ -670,27 +1171,48 @@ class CrabCharacter {
                 walkPixelX -= step
                 if walkPixelX <= walkTargetX { walkPixelX = walkTargetX; enterPause() }
             }
-
             window.setFrameOrigin(NSPoint(x: walkPixelX, y: customY ?? floorY))
-
         }
 
-        if pillWindow?.isVisible ?? false {
+        updateStatusBubble()
+
+        if let pw = previewWindow, pw.isVisible {
             let cf = window.frame
-            let ps = pillWindow!.frame.size
+            let ps = pw.frame.size
             var px = cf.midX - ps.width / 2
             if let s = NSScreen.main { px = max(s.frame.minX + 4, min(px, s.frame.maxX - ps.width - 4)) }
-            pillWindow?.setFrameOrigin(NSPoint(x: px, y: cf.maxY + 6))
+            pw.setFrameOrigin(NSPoint(x: px, y: cf.maxY + 6))
         }
     }
 }
+
+// MARK: - Support
 
 class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 }
 
-class BubbleClickView: NSView {
-    var onTap: (() -> Void)?
-    override func mouseDown(with event: NSEvent) { onTap?() }
+extension Double {
+    var nonZero: Double? { self == 0 ? nil : self }
+}
+
+enum PetTheme {
+    static let shell = NSColor(red: 0.843, green: 0.467, blue: 0.341, alpha: 1.0)
+    static let paper = NSColor(red: 0.980, green: 0.944, blue: 0.902, alpha: 1.0)
+    static let milk = NSColor(red: 0.996, green: 0.988, blue: 0.972, alpha: 1.0)
+    static let blush = NSColor(red: 0.972, green: 0.820, blue: 0.760, alpha: 1.0)
+    static let ink = NSColor(red: 0.188, green: 0.156, blue: 0.141, alpha: 1.0)
+}
+
+enum PetFonts {
+    static func rounded(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        let base = NSFont.systemFont(ofSize: size, weight: weight)
+        let descriptor = base.fontDescriptor.withDesign(.rounded) ?? base.fontDescriptor
+        return NSFont(descriptor: descriptor, size: size) ?? base
+    }
+
+    static func mono(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: size, weight: weight)
+    }
 }

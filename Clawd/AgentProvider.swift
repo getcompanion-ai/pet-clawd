@@ -42,7 +42,7 @@ enum AgentProvider: String, CaseIterable {
 protocol AgentSession: AnyObject {
     var isRunning: Bool { get }
     var isBusy: Bool { get }
-    var history: [ChatMessage] { get }
+    var history: [ChatMessage] { get set }
 
     var onText: ((String) -> Void)? { get set }
     var onError: ((String) -> Void)? { get set }

@@ -7,6 +7,15 @@ class CrabContentView: NSView {
     private var windowStart: NSPoint = .zero
     private var samples: [(pos: NSPoint, time: CFTimeInterval)] = []
 
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let shadowRect = NSRect(x: 18, y: 4, width: bounds.width - 36, height: 12)
+        let shadowPath = NSBezierPath(ovalIn: shadowRect)
+        NSColor.black.withAlphaComponent(0.13).setFill()
+        shadowPath.fill()
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let renderer = character?.spriteRenderer else { return nil }
         return renderer.isOpaqueAt(point: point) ? self : nil
@@ -40,30 +49,7 @@ class CrabContentView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         if isDragging {
-            let vx: CGFloat
-            let vy: CGFloat
-
-            if samples.count >= 2 {
-                let recent = samples.suffix(4)
-                let first = recent.first!
-                let last = recent.last!
-                let dt = last.time - first.time
-                if dt > 0.005 {
-                    vx = (last.pos.x - first.pos.x) / CGFloat(dt)
-                    vy = (last.pos.y - first.pos.y) / CGFloat(dt)
-                } else {
-                    vx = 0; vy = 0
-                }
-            } else {
-                vx = 0; vy = 0
-            }
-
-            let speed = sqrt(vx * vx + vy * vy)
-            if speed > 50 {
-                character?.throwWithVelocity(vx: vx, vy: vy)
-            } else {
-                character?.snapToSurface()
-            }
+            character?.snapToSurface()
             isDragging = false
         } else {
             character?.handleClick()

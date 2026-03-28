@@ -29,6 +29,8 @@ class ShellEnvironment {
             for (k, v) in shellEnv where env[k] == nil { env[k] = v }
         }
 
+        env.removeValue(forKey: "CLAUDECODE")
+
         cachedEnv = env
         return env
     }
