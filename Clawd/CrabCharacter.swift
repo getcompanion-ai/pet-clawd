@@ -118,7 +118,7 @@ class CrabCharacter {
         }
 
         if session == nil {
-            let newSession = AgentProvider.current.createSession()
+            let newSession = createAgentSession()
             session = newSession
             wireSession(newSession)
             isStartingSession = true
@@ -469,7 +469,7 @@ class CrabCharacter {
         hidePreview()
 
         if session == nil {
-            let newSession = AgentProvider.current.createSession()
+            let newSession = createAgentSession()
             session = newSession
             wireSession(newSession)
             isStartingSession = true
@@ -530,16 +530,26 @@ class CrabCharacter {
 
         let body = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
         body.wantsLayer = true
-        body.layer?.backgroundColor = PetTheme.paper.cgColor
         body.layer?.cornerRadius = 18
-        body.layer?.masksToBounds = true
+        body.layer?.shadowColor = NSColor.black.withAlphaComponent(0.12).cgColor
+        body.layer?.shadowOpacity = 1
+        body.layer?.shadowRadius = 16
+        body.layer?.shadowOffset = CGSize(width: 0, height: -3)
+        body.layer?.masksToBounds = false
 
-        let terminal = TerminalView(frame: body.bounds, accentColor: accent)
+        let inner = NSView(frame: body.bounds)
+        inner.wantsLayer = true
+        inner.layer?.backgroundColor = PetTheme.paper.cgColor
+        inner.layer?.cornerRadius = 18
+        inner.layer?.masksToBounds = true
+        body.addSubview(inner)
+
+        let terminal = TerminalView(frame: inner.bounds, accentColor: accent)
         terminal.autoresizingMask = [.width, .height]
         terminal.onSendMessage = { [weak self] message in
             self?.sendMessage(message)
         }
-        body.addSubview(terminal)
+        inner.addSubview(terminal)
 
         win.contentView = body
         popoverWindow = win
@@ -562,7 +572,7 @@ class CrabCharacter {
         terminalView?.showThinking()
 
         if session == nil {
-            let newSession = AgentProvider.current.createSession()
+            let newSession = createAgentSession()
             session = newSession
             wireSession(newSession)
             isStartingSession = true

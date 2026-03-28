@@ -1,42 +1,7 @@
 import Foundation
 
-enum AgentProvider: String, CaseIterable {
-    case claude, codex
-
-    private static let defaultsKey = "selectedProvider"
-
-    static var current: AgentProvider {
-        get {
-            let raw = UserDefaults.standard.string(forKey: defaultsKey) ?? "claude"
-            return AgentProvider(rawValue: raw) ?? .claude
-        }
-        set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey)
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .claude: return "Claude"
-        case .codex:  return "Codex"
-        }
-    }
-
-    var installInstructions: String {
-        switch self {
-        case .claude:
-            return "Install: curl -fsSL https://claude.ai/install.sh | sh"
-        case .codex:
-            return "Install: npm install -g @openai/codex"
-        }
-    }
-
-    func createSession() -> AgentSession {
-        switch self {
-        case .claude: return ClaudeSession()
-        case .codex:  return CodexSession()
-        }
-    }
+func createAgentSession() -> AgentSession {
+    return ClaudeSession()
 }
 
 protocol AgentSession: AnyObject {
