@@ -1,5 +1,7 @@
 # clawd
 
+![clawd](hero.png)
+
 a pixel art crab that lives on your mac, watches your screen, and chats with you.
 
 ## features

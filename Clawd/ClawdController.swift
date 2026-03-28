@@ -27,7 +27,7 @@ class ClawdController {
 
     func tick() {
         guard let screen = NSScreen.main else { return }
-        let floorY = screen.visibleFrame.origin.y
+        let floorY = screen.visibleFrame.origin.y - 10
         let screenWidth = screen.frame.width
         crab.update(floorY: floorY, screenLeft: screen.frame.origin.x, screenWidth: screenWidth)
     }
