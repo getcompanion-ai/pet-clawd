@@ -90,10 +90,33 @@ class CrabCharacter {
 
     // MARK: - Random Comments
 
+    private static let hasLaunchedKey = "hasLaunchedBefore"
+
     func startCommentTimer() {
         commentTimer?.invalidate()
-        commentTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            self?.makeRandomComment()
+        if !UserDefaults.standard.bool(forKey: Self.hasLaunchedKey) {
+            UserDefaults.standard.set(true, forKey: Self.hasLaunchedKey)
+            commentTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+                guard let self = self else { return }
+                let greeting = "hey! i'm clawd. i live on your dock, peek at your screen, and drop comments. click me to chat!"
+                self.spriteRenderer.setFrame(.happy)
+                self.bounce(count: 3, height: 8)
+                self.showEffect(.sparkle)
+                self.showPreview(greeting, autoFade: false)
+                self.previewFadeTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { [weak self] _ in
+                    NSAnimationContext.runAnimationGroup({ ctx in
+                        ctx.duration = 0.5
+                        self?.previewWindow?.animator().alphaValue = 0
+                    }, completionHandler: { self?.previewWindow?.orderOut(nil) })
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+                    self?.spriteRenderer.setFrame(.idle)
+                    self?.clearEffects()
+                }
+                self.scheduleNextComment()
+            }
+        } else {
+            scheduleNextComment()
         }
     }
 
