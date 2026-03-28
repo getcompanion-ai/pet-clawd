@@ -56,6 +56,8 @@ cat > "$CONTENTS/Info.plist" << PLIST
     <string>Clawd uses screen capture to provide context about what you're looking at when answering questions.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
 PLIST
@@ -63,6 +65,13 @@ PLIST
 RESOURCE_BUNDLE="$(swift build -c release --show-bin-path)/Clawd_Clawd.bundle"
 if [ -d "$RESOURCE_BUNDLE" ]; then
     cp -R "$RESOURCE_BUNDLE" "$CONTENTS/Resources/"
+fi
+
+echo "Generating app icon..."
+python3 "$ROOT/scripts/gen-icon.py"
+ICNS="$BUILD_DIR/Clawd.icns"
+if [ -f "$ICNS" ]; then
+    cp "$ICNS" "$CONTENTS/Resources/AppIcon.icns"
 fi
 
 echo "Creating DMG..."
