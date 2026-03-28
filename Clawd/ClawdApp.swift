@@ -69,11 +69,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
-            button.image = renderMenuBarCrab()
-            button.image?.size = NSSize(width: 18, height: 18)
-            button.image?.isTemplate = true
+            button.title = "🦀"
         }
 
         let menu = NSMenu()
@@ -138,19 +136,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         ]
-        let size = 36
-        let scale = size / 16
-        let image = NSImage(size: NSSize(width: size, height: size))
-        image.lockFocus()
+        let px = 3
+        let size = 16 * px
+        guard let ctx = CGContext(
+            data: nil, width: size, height: size,
+            bitsPerComponent: 8, bytesPerRow: size * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return NSImage(systemSymbolName: "ladybug.fill", accessibilityDescription: "Clawd")!
+        }
+        ctx.clear(CGRect(x: 0, y: 0, width: size, height: size))
         for row in 0..<16 {
             for col in 0..<16 {
-                if grid[row][col] == 0 { continue }
+                let val = grid[row][col]
+                if val == 0 { continue }
                 let flippedRow = 15 - row
-                NSColor.black.setFill()
-                NSRect(x: col * scale, y: flippedRow * scale, width: scale, height: scale).fill()
+                if val == 1 {
+                    ctx.setFillColor(red: 0.843, green: 0.467, blue: 0.341, alpha: 1)
+                } else {
+                    ctx.setFillColor(red: 0.176, green: 0.176, blue: 0.176, alpha: 1)
+                }
+                ctx.fill(CGRect(x: col * px, y: flippedRow * px, width: px, height: px))
             }
         }
-        image.unlockFocus()
+        guard let cgImage = ctx.makeImage() else {
+            return NSImage(systemSymbolName: "ladybug.fill", accessibilityDescription: "Clawd")!
+        }
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(size) / 2, height: CGFloat(size) / 2))
         return image
     }
 
