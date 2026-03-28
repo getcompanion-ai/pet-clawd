@@ -6,23 +6,27 @@ a pixel art crab that lives on your mac, watches your screen, and chats with you
 
 ## features
 
-- walks around the bottom of your screen
-- sees what you're looking at via screen capture
-- chats with you through Claude CLI (ctrl+space to open)
-- makes random comments about what's on screen
-- fully local -- just a native macOS app talking to Claude
+- pixel art crab walks on your dock
+- tap to pet -- emotions escalate the more you tap (happy, love, surprised, scared, angry, dead)
+- click to chat via Claude CLI
+- `Cmd+Shift+Space` to open chat from anywhere
+- proactive screen comments with emoji emotions (configurable interval)
+- tamagotchi-style animations: bounce, shake, tremble, squash, pixel art effects
 
 ## requirements
 
 - macOS 13+
-- [Claude CLI](https://docs.anthropic.com/en/docs/claude-cli) installed
+- [Claude CLI](https://docs.anthropic.com/en/docs/claude-cli) installed and authenticated
 
 ## install
 
-Download the DMG from [releases](https://github.com/getcompanion-ai/clawd/releases), or build from source:
+Download the DMG from [releases](https://github.com/getcompanion-ai/pet-clawd/releases), or build from source:
 
 ```
-swift build && .build/debug/Clawd
+git clone https://github.com/getcompanion-ai/pet-clawd.git
+cd pet-clawd
+swift build
+.build/debug/Clawd
 ```
 
 To build a release .app and DMG:
@@ -31,9 +35,14 @@ To build a release .app and DMG:
 ./scripts/build-app.sh
 ```
 
+## permissions
+
+- **Accessibility** -- required for the `Cmd+Shift+Space` hotkey
+- **Screen Recording** -- optional, enables proactive screen comments. granted on first launch or via menu bar toggle.
+
 ## privacy
 
-Everything runs locally on your machine. No data is collected or sent anywhere except to the Claude CLI, which handles its own authentication and API communication.
+Everything runs locally. No data is collected or sent anywhere. Screen captures are compressed, sent to Claude CLI for context, and immediately deleted. The Claude CLI handles its own API communication.
 
 ## license
 
