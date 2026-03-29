@@ -7,6 +7,10 @@ APP_DIR="$BUILD_DIR/Clawd.app"
 CONTENTS="$APP_DIR/Contents"
 DMG_PATH="$BUILD_DIR/Clawd.dmg"
 
+SIGN_IDENTITY="Developer ID Application: Companion, Inc. (5LYD7HDS6X)"
+TEAM_ID="5LYD7HDS6X"
+BUNDLE_ID="com.getcompanion.clawd"
+
 echo "Building release binary..."
 cd "$ROOT"
 swift build -c release
@@ -37,7 +41,7 @@ cat > "$CONTENTS/Info.plist" << PLIST
     <key>CFBundleDisplayName</key>
     <string>Clawd</string>
     <key>CFBundleIdentifier</key>
-    <string>com.getcompanion.clawd</string>
+    <string>${BUNDLE_ID}</string>
     <key>CFBundleVersion</key>
     <string>${BUILD_NUMBER}</string>
     <key>CFBundleShortVersionString</key>
@@ -66,6 +70,19 @@ cat > "$CONTENTS/Info.plist" << PLIST
 </plist>
 PLIST
 
+cat > "$BUILD_DIR/Clawd.entitlements" << ENTITLEMENTS
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>
+ENTITLEMENTS
+
 RESOURCE_BUNDLE="$(swift build -c release --show-bin-path)/Clawd_Clawd.bundle"
 if [ -d "$RESOURCE_BUNDLE" ]; then
     cp -R "$RESOURCE_BUNDLE" "$CONTENTS/Resources/"
@@ -85,8 +102,40 @@ if [ -f "$ICNS" ]; then
     cp "$ICNS" "$CONTENTS/Resources/AppIcon.icns"
 fi
 
-echo "Ad-hoc signing app bundle..."
-codesign --force --deep --sign - "$APP_DIR"
+echo "Signing with Developer ID..."
+if [ -d "$CONTENTS/Frameworks/Sparkle.framework" ]; then
+    codesign --force --options runtime --sign "$SIGN_IDENTITY" "$CONTENTS/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
+    codesign --force --options runtime --sign "$SIGN_IDENTITY" "$CONTENTS/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc"
+    codesign --force --options runtime --sign "$SIGN_IDENTITY" "$CONTENTS/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
+    codesign --force --options runtime --sign "$SIGN_IDENTITY" "$CONTENTS/Frameworks/Sparkle.framework/Versions/B/Updater.app"
+    codesign --force --options runtime --sign "$SIGN_IDENTITY" "$CONTENTS/Frameworks/Sparkle.framework"
+fi
+codesign --force --options runtime --entitlements "$BUILD_DIR/Clawd.entitlements" --sign "$SIGN_IDENTITY" "$APP_DIR"
+
+echo "Verifying signature..."
+codesign --verify --deep --strict "$APP_DIR"
+spctl --assess --type execute --verbose "$APP_DIR" || true
+
+echo "Notarizing..."
+ZIP_FOR_NOTARIZE="$BUILD_DIR/Clawd-notarize.zip"
+ditto -c -k --keepParent "$APP_DIR" "$ZIP_FOR_NOTARIZE"
+xcrun notarytool submit "$ZIP_FOR_NOTARIZE" \
+    --team-id "$TEAM_ID" \
+    --wait \
+    --apple-id "advait@companion.ai" \
+    --keychain-profile "notarytool-clawd" 2>&1 || {
+    echo ""
+    echo "If notarization fails with auth error, run this once to store credentials:"
+    echo "  xcrun notarytool store-credentials notarytool-clawd --apple-id advait@companion.ai --team-id $TEAM_ID"
+    echo ""
+    echo "Then re-run this script."
+    rm -f "$ZIP_FOR_NOTARIZE"
+    exit 1
+}
+rm -f "$ZIP_FOR_NOTARIZE"
+
+echo "Stapling notarization ticket..."
+xcrun stapler staple "$APP_DIR"
 
 echo "Creating DMG..."
 rm -f "$DMG_PATH"
