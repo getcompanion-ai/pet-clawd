@@ -6,17 +6,17 @@
         <description>Clawd update feed</description>
         <language>en</language>
         <item>
-            <title>v1.1.1</title>
-            <description>Signed and notarized release. Dock-aware positioning, fullscreen support, auto-updates.</description>
-            <pubDate>Sat, 29 Mar 2026 10:00:00 -0700</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+            <title>v1.1.2</title>
+            <description>Fixed Sparkle framework loading. Signed and notarized.</description>
+            <pubDate>Sat, 29 Mar 2026 10:25:00 -0700</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>1.1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.1.1/Clawd-v1.1.1.zip"
+                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.1.2/Clawd-v1.1.2.zip"
                 type="application/octet-stream"
-                sparkle:edSignature="Fd2aovgf+zLtreVyeo6A2I8F9oLKBJvLRx8lowVNb/oSKJEPx2EzPOr1jMaBek0ranpZ5byk9uG17HXpznGyBQ=="
-                length="1201674"
+                sparkle:edSignature="GWPWORO+lDD/O4M74B/xHo2fBAMIqItg1MXVHkHa4x9F8nPMIuxz9WQVT+hD+VEXzPjQ2ympcrHfrhxlIrrXCQ=="
+                length="1201777"
             />
         </item>
     </channel>
