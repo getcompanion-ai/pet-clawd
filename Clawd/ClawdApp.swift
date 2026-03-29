@@ -96,13 +96,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let screenItem = NSMenuItem(title: "Screen Context", action: #selector(toggleScreenContext(_:)), keyEquivalent: "")
-        screenItem.state = (ScreenContext.enabled && ScreenContext.hasPermission) ? .on : .off
-        menu.addItem(screenItem)
-
         let commentMenu = NSMenu()
         let commentToggle = NSMenuItem(title: "Enabled", action: #selector(toggleComments(_:)), keyEquivalent: "")
-        commentToggle.state = .on
+        commentToggle.state = (ScreenContext.enabled && ScreenContext.hasPermission) ? .on : .off
         commentMenu.addItem(commentToggle)
         commentMenu.addItem(NSMenuItem.separator())
         for secs in [15, 30, 60, 120, 300] {
@@ -112,7 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             item.state = Int(CrabCharacter.commentInterval) == secs ? .on : .off
             commentMenu.addItem(item)
         }
-        let commentItem = NSMenuItem(title: "Random Comments", action: nil, keyEquivalent: "")
+        let commentItem = NSMenuItem(title: "Screen Comments", action: nil, keyEquivalent: "")
         commentItem.submenu = commentMenu
         menu.addItem(commentItem)
 
@@ -194,8 +190,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if crab.commentTimer != nil {
             crab.commentTimer?.invalidate()
             crab.commentTimer = nil
+            ScreenContext.enabled = false
             sender.state = .off
         } else {
+            if !ScreenContext.hasPermission {
+                ScreenContext.requestPermission()
+            }
+            ScreenContext.enabled = true
             crab.startCommentTimer()
             sender.state = .on
         }
@@ -210,17 +211,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let crab = controller?.crab, crab.commentTimer != nil {
             crab.startCommentTimer()
-        }
-    }
-
-    @objc func toggleScreenContext(_ sender: NSMenuItem) {
-        if !ScreenContext.enabled && !ScreenContext.hasPermission {
-            ScreenContext.requestPermission()
-        }
-        ScreenContext.enabled.toggle()
-        sender.state = ScreenContext.enabled ? .on : .off
-        if ScreenContext.enabled && !ScreenContext.hasPermission {
-            ScreenContext.openScreenRecordingSettings()
         }
     }
 
