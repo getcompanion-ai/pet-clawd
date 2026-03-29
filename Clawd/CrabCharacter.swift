@@ -594,7 +594,7 @@ class CrabCharacter {
             self?.session?.send(message: text, screenshotBase64: screenshot)
         }
 
-        if ScreenContext.hasPermission {
+        if ScreenContext.enabled && ScreenContext.hasPermission {
             ScreenContext.captureScreenshot(completion: sendToSession)
         } else {
             sendToSession(nil)

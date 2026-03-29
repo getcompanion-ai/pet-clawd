@@ -96,6 +96,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        let screenItem = NSMenuItem(title: "Screen Context", action: #selector(toggleScreenContext(_:)), keyEquivalent: "")
+        screenItem.state = (ScreenContext.enabled && ScreenContext.hasPermission) ? .on : .off
+        menu.addItem(screenItem)
+
         let commentMenu = NSMenu()
         let commentToggle = NSMenuItem(title: "Enabled", action: #selector(toggleComments(_:)), keyEquivalent: "")
         commentToggle.state = (ScreenContext.enabled && ScreenContext.hasPermission) ? .on : .off
@@ -190,13 +194,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if crab.commentTimer != nil {
             crab.commentTimer?.invalidate()
             crab.commentTimer = nil
-            ScreenContext.enabled = false
             sender.state = .off
         } else {
-            if !ScreenContext.hasPermission {
-                ScreenContext.requestPermission()
+            if !ScreenContext.enabled || !ScreenContext.hasPermission {
+                if !ScreenContext.hasPermission {
+                    ScreenContext.requestPermission()
+                }
+                ScreenContext.enabled = true
+                if let menu = statusItem?.menu {
+                    for item in menu.items where item.action == #selector(toggleScreenContext(_:)) {
+                        item.state = .on
+                    }
+                }
             }
-            ScreenContext.enabled = true
             crab.startCommentTimer()
             sender.state = .on
         }
@@ -212,6 +222,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let crab = controller?.crab, crab.commentTimer != nil {
             crab.startCommentTimer()
         }
+    }
+
+    @objc func toggleScreenContext(_ sender: NSMenuItem) {
+        if !ScreenContext.hasPermission {
+            ScreenContext.requestPermission()
+        }
+        ScreenContext.enabled.toggle()
+        sender.state = (ScreenContext.enabled && ScreenContext.hasPermission) ? .on : .off
     }
 
     @objc func openChat() {
