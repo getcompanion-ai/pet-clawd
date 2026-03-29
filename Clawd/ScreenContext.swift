@@ -1,11 +1,22 @@
 import AppKit
 
 class ScreenContext {
-    private static let enabledKey = "screenContextEnabled"
+    private static let chatEnabledKey = "screenContextChatEnabled"
+    private static let commentsEnabledKey = "screenContextCommentsEnabled"
+
+    static var chatEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: chatEnabledKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: chatEnabledKey) }
+    }
+
+    static var commentsEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: commentsEnabledKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: commentsEnabledKey) }
+    }
 
     static var enabled: Bool {
-        get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? false }
-        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+        get { chatEnabled || commentsEnabled }
+        set { chatEnabled = newValue; commentsEnabled = newValue }
     }
 
     static var hasPermission: Bool {

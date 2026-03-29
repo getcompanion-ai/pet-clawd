@@ -6,17 +6,17 @@
         <description>Clawd update feed</description>
         <language>en</language>
         <item>
-            <title>v1.1.5</title>
-            <description>Screen Context toggle controls both chat and random comments.</description>
-            <pubDate>Sat, 29 Mar 2026 11:15:00 -0700</pubDate>
-            <sparkle:version>7</sparkle:version>
-            <sparkle:shortVersionString>1.1.5</sparkle:shortVersionString>
+            <title>v1.1.6</title>
+            <description>Independent Screen Context toggles under Chat and Screen Comments submenus.</description>
+            <pubDate>Sat, 29 Mar 2026 11:30:00 -0700</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>1.1.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.1.5/Clawd-v1.1.5.zip"
+                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.1.6/Clawd-v1.1.6.zip"
                 type="application/octet-stream"
-                sparkle:edSignature="vnThQb9UgXy/0Ls93V6lYoH+3KwhMs/Tci7hjjhvXpU/8ejaFexbGVk7ztfMv/wmfpj4K71MGnzN/XH64ZHMCw=="
-                length="1202123"
+                sparkle:edSignature="pIkva8uevCL0Foqa0fXIhywuohYICZ9U7ycZkercyNNoX65pKfRfwrP38ABojBIhv2NdMxaeke7Pq2A34G6rAQ=="
+                length="1202237"
             />
         </item>
     </channel>

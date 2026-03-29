@@ -138,7 +138,7 @@ class CrabCharacter {
               session?.isBusy != true,
               !isAutoComment,
               currentStreamingText.isEmpty,
-              ScreenContext.enabled,
+              ScreenContext.commentsEnabled,
               ScreenContext.hasPermission else {
             scheduleNextComment()
             return
@@ -594,7 +594,7 @@ class CrabCharacter {
             self?.session?.send(message: text, screenshotBase64: screenshot)
         }
 
-        if ScreenContext.enabled && ScreenContext.hasPermission {
+        if ScreenContext.chatEnabled && ScreenContext.hasPermission {
             ScreenContext.captureScreenshot(completion: sendToSession)
         } else {
             sendToSession(nil)
