@@ -97,7 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
 
         let screenItem = NSMenuItem(title: "Screen Context", action: #selector(toggleScreenContext(_:)), keyEquivalent: "")
-        screenItem.state = ScreenContext.enabled ? .on : .off
+        screenItem.state = (ScreenContext.enabled && ScreenContext.hasPermission) ? .on : .off
         menu.addItem(screenItem)
 
         let commentMenu = NSMenu()
@@ -219,6 +219,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         ScreenContext.enabled.toggle()
         sender.state = ScreenContext.enabled ? .on : .off
+        if ScreenContext.enabled && !ScreenContext.hasPermission {
+            ScreenContext.openScreenRecordingSettings()
+        }
     }
 
     @objc func openChat() {

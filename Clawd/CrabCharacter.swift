@@ -89,16 +89,8 @@ class CrabCharacter {
 
         if !ScreenContext.hasPermission {
             ScreenContext.requestPermission()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                if ScreenContext.hasPermission {
-                    ScreenContext.enabled = true
-                }
-                self.startCommentTimer()
-            }
-        } else {
-            ScreenContext.enabled = true
-            startCommentTimer()
         }
+        startCommentTimer()
     }
 
     // MARK: - Random Comments
@@ -247,6 +239,7 @@ class CrabCharacter {
                 self.playNextEmotion()
             } else {
                 self.isAnimatingEmotion = false
+                self.tapTimes.removeAll()
             }
         }
     }

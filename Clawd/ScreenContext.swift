@@ -13,7 +13,13 @@ class ScreenContext {
     }
 
     static func requestPermission() {
-        CGRequestScreenCaptureAccess()
+        if !CGRequestScreenCaptureAccess() {
+            openScreenRecordingSettings()
+        }
+    }
+
+    static func openScreenRecordingSettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
     }
 
     static func captureScreenshot(completion: @escaping (String?) -> Void) {
