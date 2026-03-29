@@ -58,6 +58,10 @@ cat > "$CONTENTS/Info.plist" << PLIST
     <true/>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/getcompanion-ai/pet-clawd/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>p/STOfduNWVMNYn1sjYX3pbM5PnywVU/8WrGUJjpoAI=</string>
 </dict>
 </plist>
 PLIST
@@ -67,12 +71,22 @@ if [ -d "$RESOURCE_BUNDLE" ]; then
     cp -R "$RESOURCE_BUNDLE" "$CONTENTS/Resources/"
 fi
 
+echo "Embedding Sparkle framework..."
+mkdir -p "$CONTENTS/Frameworks"
+SPARKLE_PATH="$(find "$ROOT/.build/artifacts" -name "Sparkle.framework" -type d | head -1)"
+if [ -n "$SPARKLE_PATH" ] && [ -d "$SPARKLE_PATH" ]; then
+    cp -R "$SPARKLE_PATH" "$CONTENTS/Frameworks/"
+fi
+
 echo "Generating app icon..."
 python3 "$ROOT/scripts/gen-icon.py"
 ICNS="$BUILD_DIR/Clawd.icns"
 if [ -f "$ICNS" ]; then
     cp "$ICNS" "$CONTENTS/Resources/AppIcon.icns"
 fi
+
+echo "Ad-hoc signing app bundle..."
+codesign --force --deep --sign - "$APP_DIR"
 
 echo "Creating DMG..."
 rm -f "$DMG_PATH"

@@ -1,0 +1,23 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+    <channel>
+        <title>Clawd</title>
+        <link>https://github.com/getcompanion-ai/pet-clawd</link>
+        <description>Clawd update feed</description>
+        <language>en</language>
+        <item>
+            <title>v1.1.0</title>
+            <description>Dock-aware positioning, fullscreen support, auto-updates via Sparkle.</description>
+            <pubDate>Sat, 29 Mar 2026 09:00:00 -0700</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.1.0/Clawd-v1.1.0.zip"
+                type="application/octet-stream"
+                sparkle:edSignature="5SUjkKFH531vkaiyCRMHftZTFYMyx2EiiJoWJ5zRgjBAYzKlStLKIQ8Wek07K5VJR9aLWFQ6SCJb/+R9PLkQAQ=="
+                length="1147667"
+            />
+        </item>
+    </channel>
+</rss>

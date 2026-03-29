@@ -58,8 +58,8 @@ class CrabCharacter {
     }()
 
     var lastFloorY: CGFloat = 0
-    var lastScreenLeft: CGFloat = 0
-    var lastScreenWidth: CGFloat = 1440
+    var lastDockX: CGFloat = 0
+    var lastDockWidth: CGFloat = 800
 
     // MARK: - Setup
 
@@ -67,15 +67,16 @@ class CrabCharacter {
         spriteRenderer = CrabSpriteRenderer()
         guard let screen = NSScreen.main else { return }
         let y = screen.frame.origin.y
+        let startX = screen.frame.width / 2 - displaySize / 2
 
-        window = NSWindow(contentRect: CGRect(x: 0, y: y, width: displaySize, height: displaySize),
+        window = NSWindow(contentRect: CGRect(x: startX, y: y, width: displaySize, height: displaySize),
                           styleMask: .borderless, backing: .buffered, defer: false)
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
-        window.level = .statusBar
+        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
         window.ignoresMouseEvents = false
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         let host = CrabContentView(frame: CGRect(x: 0, y: 0, width: displaySize, height: displaySize))
         host.character = self
@@ -542,8 +543,8 @@ class CrabCharacter {
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = true
-        win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 10)
-        win.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)) + 1)
+        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         let body = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
         body.wantsLayer = true
@@ -577,7 +578,7 @@ class CrabCharacter {
         guard let win = popoverWindow, let screen = NSScreen.main else { return }
         let cf = window.frame
         var x = cf.midX - win.frame.width / 2
-        let y = cf.maxY + 2
+        let y = cf.maxY - 14
         x = max(screen.frame.minX + 4, min(x, screen.frame.maxX - win.frame.width - 4))
         win.setFrameOrigin(NSPoint(x: x, y: min(y, screen.frame.maxY - win.frame.height - 4)))
     }
@@ -792,7 +793,7 @@ class CrabCharacter {
 
         let cf = window.frame
         let x = cf.midX - bw / 2
-        let y = cf.maxY + 4
+        let y = cf.maxY - 16
         win.setFrame(CGRect(x: x, y: y, width: bw, height: bh), display: false)
 
         if let container = win.contentView {
@@ -821,9 +822,9 @@ class CrabCharacter {
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = true
-        win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 5)
+        win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)) + 1)
         win.ignoresMouseEvents = true
-        win.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         let container = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
         container.wantsLayer = true
@@ -864,7 +865,7 @@ class CrabCharacter {
         var x = cf.midX - previewW / 2
         if let s = NSScreen.main { x = max(s.frame.minX + 4, min(x, s.frame.maxX - previewW - 4)) }
 
-        win.setFrame(CGRect(x: x, y: cf.maxY + 6, width: previewW, height: ph), display: true)
+        win.setFrame(CGRect(x: x, y: cf.maxY - 14, width: previewW, height: ph), display: true)
         tv.frame = NSRect(x: previewPad, y: previewPad, width: innerW, height: textH)
     }
 
@@ -1010,9 +1011,9 @@ class CrabCharacter {
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = false
-        win.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 5)
+        win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)) + 1)
         win.ignoresMouseEvents = false
-        win.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         let card = PreviewCardView(frame: NSRect(x: 0, y: 0, width: pw, height: ph))
         card.onTap = { [weak self] in self?.hidePreview() }
@@ -1043,9 +1044,9 @@ class CrabCharacter {
     func startWalk() {
         let cf = window.frame
         let curX = cf.origin.x
-        let margin: CGFloat = 10
-        let leftEdge = lastScreenLeft + margin
-        let rightEdge = lastScreenLeft + lastScreenWidth - displaySize - margin
+        let margin: CGFloat = 4
+        let leftEdge = lastDockX + margin
+        let rightEdge = lastDockX + lastDockWidth - displaySize - margin
 
         if curX >= rightEdge - 20 {
             goingRight = false
@@ -1077,10 +1078,10 @@ class CrabCharacter {
         pauseEndTime = CACurrentMediaTime() + Double.random(in: 4.0...10.0)
     }
 
-    func update(floorY: CGFloat, screenLeft: CGFloat, screenWidth: CGFloat) {
+    func update(floorY: CGFloat, dockX: CGFloat, dockWidth: CGFloat) {
         lastFloorY = floorY
-        lastScreenLeft = screenLeft
-        lastScreenWidth = screenWidth
+        lastDockX = dockX
+        lastDockWidth = dockWidth
         let now = CACurrentMediaTime()
         let dt = now - lastTick
         lastTick = now
@@ -1126,7 +1127,7 @@ class CrabCharacter {
             let ps = pw.frame.size
             var px = cf.midX - ps.width / 2
             if let s = NSScreen.main { px = max(s.frame.minX + 4, min(px, s.frame.maxX - ps.width - 4)) }
-            pw.setFrameOrigin(NSPoint(x: px, y: cf.maxY + 6))
+            pw.setFrameOrigin(NSPoint(x: px, y: cf.maxY - 14))
         }
     }
 }
