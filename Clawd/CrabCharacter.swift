@@ -1138,6 +1138,7 @@ class CrabCharacter {
 
     // MARK: - Dragging
 
+    var isDragging = false
     var isFalling = false
     var fallVelocity: CGFloat = 0
     let gravity: CGFloat = 2800
@@ -1145,16 +1146,16 @@ class CrabCharacter {
     let minBounceVelocity: CGFloat = 80
 
     func stopForDrag() {
+        isDragging = true
         isFalling = false
         fallVelocity = 0
         isWalking = false
         isPaused = true
         spriteRenderer.setFrame(.surprised)
-        hideBubble()
-        hidePreview()
     }
 
     func startFalling() {
+        isDragging = false
         isFalling = true
         fallVelocity = 0
         spriteRenderer.setFrame(.scared)
@@ -1251,6 +1252,10 @@ class CrabCharacter {
         if isBlinking && blinkTimer > 0.15 {
             isBlinking = false; blinkTimer = 0; nextBlink = 2 + Double.random(in: 0...4)
             if !isWalking && !emotionActive { spriteRenderer.setFrame(.idle) }
+        }
+
+        if isDragging {
+            return
         }
 
         if isFalling {
