@@ -11,8 +11,6 @@ class CrabSpriteRenderer {
     private var frameImages: [CGImage] = []
     let layer = CALayer()
 
-    private var walkTimer: Timer?
-    private var walkToggle = false
 
     enum Frame: Int {
         case idle = 0
@@ -351,29 +349,17 @@ class CrabSpriteRenderer {
         CATransaction.commit()
     }
 
+    private var currentlyFlipped = false
+
     func setFlipped(_ flipped: Bool) {
+        guard flipped != currentlyFlipped else { return }
+        currentlyFlipped = flipped
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer.transform = flipped ? CATransform3DMakeScale(-1, 1, 1) : CATransform3DIdentity
-        layer.frame = CGRect(x: 0, y: 0, width: displaySize, height: displaySize)
         CATransaction.commit()
     }
 
-    func startWalkAnimation() {
-        stopWalkAnimation()
-        walkToggle = false
-        walkTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.walkToggle.toggle()
-            self.setFrame(self.walkToggle ? .walkA : .walkB)
-        }
-    }
-
-    func stopWalkAnimation() {
-        walkTimer?.invalidate()
-        walkTimer = nil
-        setFrame(.idle)
-    }
 
     func isOpaqueAt(point: NSPoint) -> Bool {
         let col = Int(point.x) / scale

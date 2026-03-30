@@ -111,7 +111,7 @@ class CrabCharacter {
             UserDefaults.standard.set(true, forKey: Self.hasLaunchedKey)
             commentTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
                 guard let self = self else { return }
-                let greeting = "yo i'm clawd. i live here now. give me screen access so i can judge everything you do 👀"
+                let greeting = "yo i'm clawd. i live here now. give me screen access so i can judge everything you do"
                 self.spriteRenderer.setFrame(.happy)
                 self.bounce(count: 3, height: 8)
                 self.showEffect(.sparkle)
@@ -239,8 +239,11 @@ class CrabCharacter {
         emotionResetTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
             guard let self = self else { return }
             self.spriteRenderer.setFrame(.idle)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             self.spriteRenderer.layer.transform = CATransform3DIdentity
             self.spriteRenderer.layer.opacity = 1
+            CATransaction.commit()
             self.clearEffects()
 
             if self.pendingTaps > 0 {
@@ -536,11 +539,11 @@ class CrabCharacter {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self = self else { return }
                 let grown = NSRect(x: origin.x - dw / 2, y: origin.y - dh / 2, width: size.width + dw, height: size.height + dh)
-                self.window.setFrame(grown, display: true)
+                self.window.setFrame(grown, display: false)
             }
             delay += 0.15
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                self?.window.setFrame(NSRect(origin: origin, size: size), display: true)
+                self?.window.setFrame(NSRect(origin: origin, size: size), display: false)
             }
             delay += 0.15
         }
@@ -836,8 +839,11 @@ class CrabCharacter {
             guard let self = self else { return }
             if self.isWalking { self.walkFrameTimer = 0 }
             else { self.spriteRenderer.setFrame(.idle) }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             self.spriteRenderer.layer.transform = CATransform3DIdentity
             self.spriteRenderer.layer.opacity = 1
+            CATransaction.commit()
             self.clearEffects()
         }
     }
@@ -1132,7 +1138,6 @@ class CrabCharacter {
 
     // MARK: - Dragging
 
-    var isDragged = false
     var isFalling = false
     var fallVelocity: CGFloat = 0
     let gravity: CGFloat = 2800
@@ -1150,7 +1155,6 @@ class CrabCharacter {
     }
 
     func startFalling() {
-        isDragged = true
         isFalling = true
         fallVelocity = 0
         spriteRenderer.setFrame(.scared)
