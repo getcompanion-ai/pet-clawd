@@ -81,7 +81,15 @@ class CrabCharacter {
         let host = CrabContentView(frame: CGRect(x: 0, y: 0, width: displaySize, height: displaySize))
         host.character = self
         host.wantsLayer = true
+        host.canDrawSubviewsIntoLayer = true
+        host.layerContentsRedrawPolicy = .never
         host.layer?.backgroundColor = NSColor.clear.cgColor
+
+        let shadowLayer = CALayer()
+        shadowLayer.frame = CGRect(x: 18, y: 4, width: displaySize - 36, height: 12)
+        shadowLayer.cornerRadius = 6
+        shadowLayer.backgroundColor = NSColor.black.withAlphaComponent(0.13).cgColor
+        host.layer?.addSublayer(shadowLayer)
         host.layer?.addSublayer(spriteRenderer.layer)
         window.contentView = host
         window.orderFrontRegardless()
@@ -160,7 +168,7 @@ class CrabCharacter {
             self.isAutoComment = true
             let seed = Int.random(in: 1000...9999)
             self.session?.send(
-                message: "<system>[\(seed)] You're a chaotic unhinged little desktop creature. Peek at the user's screen and say one short sentence reacting to what they're doing. Be funny, dramatic, judgmental, or absurd. You have zero filter. Roast them, hype them, be weird, be deranged. Never be boring or generic. Never quote or repeat what's on screen verbatim. React to it, don't describe it. Start with one emoji that fits your vibe: 😄 😭 😡 😨 🤢 😴 💀 😍</system>",
+                message: "<system>[\(seed)] You're a friend sitting next to the user. You can both see the screen. Say ONE short sentence (under 10 words) — the kind of thing you'd actually say out loud to a friend. Don't describe or narrate what's on screen, they can see it. React with an opinion, a joke, a vibe check, or a useful tip. Start with one emoji: 😄 😭 😡 😨 🤢 😴 💀 😍</system>",
                 screenshotBase64: img
             )
             self.scheduleNextComment()
@@ -295,17 +303,9 @@ class CrabCharacter {
 
     private func playDead() -> Double {
         spriteRenderer.setFrame(.dead)
-        let layer = spriteRenderer.layer
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(0.5)
-        layer.transform = CATransform3DConcat(
-            CATransform3DMakeRotation(.pi / 2, 0, 0, 1),
-            CATransform3DMakeTranslation(0, -20, 0)
-        )
-        layer.opacity = 0.4
-        CATransaction.commit()
+        shake(intensity: 3, count: 6)
         showEffect(.skull)
-        return 3.0
+        return 2.0
     }
 
     // MARK: - Pixel Art Effects
@@ -527,15 +527,23 @@ class CrabCharacter {
     }
 
     private func pulse(scale: CGFloat, count: Int) {
-        let layer = spriteRenderer.layer
-        let anim = CABasicAnimation(keyPath: "transform.scale")
-        anim.fromValue = 1.0
-        anim.toValue = scale
-        anim.duration = 0.25
-        anim.autoreverses = true
-        anim.repeatCount = Float(count)
-        anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        layer.add(anim, forKey: "pulse")
+        let origin = window.frame.origin
+        let size = window.frame.size
+        let dw = size.width * (scale - 1)
+        let dh = size.height * (scale - 1)
+        var delay = 0.0
+        for _ in 0..<count {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self else { return }
+                let grown = NSRect(x: origin.x - dw / 2, y: origin.y - dh / 2, width: size.width + dw, height: size.height + dh)
+                self.window.setFrame(grown, display: true)
+            }
+            delay += 0.15
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.window.setFrame(NSRect(origin: origin, size: size), display: true)
+            }
+            delay += 0.15
+        }
     }
 
     private func tilt(angle: CGFloat, duration: Double) {
@@ -558,7 +566,7 @@ class CrabCharacter {
         panelOpen = true
         isWalking = false
         isPaused = true
-        spriteRenderer.stopWalkAnimation()
+        spriteRenderer.setFrame(.idle)
         hideBubble()
         hidePreview()
 
@@ -823,10 +831,10 @@ class CrabCharacter {
         default: break
         }
         let words = text.split(separator: " ").count
-        let dur = max(2.0, min(Double(words) * 0.8 + 1.5, 18.0))
+        let dur = max(2.0, min(Double(words) * 0.4 + 1.5, 8.0))
         DispatchQueue.main.asyncAfter(deadline: .now() + dur) { [weak self] in
             guard let self = self else { return }
-            if self.isWalking { self.spriteRenderer.startWalkAnimation() }
+            if self.isWalking { self.walkFrameTimer = 0 }
             else { self.spriteRenderer.setFrame(.idle) }
             self.spriteRenderer.layer.transform = CATransform3DIdentity
             self.spriteRenderer.layer.opacity = 1
@@ -952,7 +960,7 @@ class CrabCharacter {
         var x = cf.midX - previewW / 2
         if let s = NSScreen.main { x = max(s.frame.minX + 4, min(x, s.frame.maxX - previewW - 4)) }
 
-        win.setFrame(CGRect(x: x, y: cf.maxY - 14, width: previewW, height: ph), display: true)
+        win.setFrame(CGRect(x: x, y: cf.maxY + 6, width: previewW, height: ph), display: true)
         tv.frame = NSRect(x: previewPad, y: previewPad, width: innerW, height: textH)
     }
 
@@ -992,7 +1000,7 @@ class CrabCharacter {
 
         if autoFade {
             let words = trimmed.split(separator: " ").count
-            let dur = max(3.0, min(Double(words) * 0.8 + 2.0, 20.0))
+            let dur = max(2.0, min(Double(words) * 0.4 + 1.5, 8.0))
             previewFadeTimer = Timer.scheduledTimer(withTimeInterval: dur, repeats: false) { [weak self] _ in
                 NSAnimationContext.runAnimationGroup({ ctx in
                     ctx.duration = 0.5
@@ -1122,11 +1130,67 @@ class CrabCharacter {
         previewTextView = tv
     }
 
+    // MARK: - Dragging
+
+    var isDragged = false
+    var isFalling = false
+    var fallVelocity: CGFloat = 0
+    let gravity: CGFloat = 2800
+    let bounceDamping: CGFloat = 0.4
+    let minBounceVelocity: CGFloat = 80
+
+    func stopForDrag() {
+        isFalling = false
+        fallVelocity = 0
+        isWalking = false
+        isPaused = true
+        spriteRenderer.setFrame(.surprised)
+        hideBubble()
+        hidePreview()
+    }
+
+    func startFalling() {
+        isDragged = true
+        isFalling = true
+        fallVelocity = 0
+        spriteRenderer.setFrame(.scared)
+    }
+
+    func updateFalling(dt: CFTimeInterval, floorY: CGFloat) {
+        fallVelocity += gravity * CGFloat(dt)
+        var y = window.frame.origin.y - fallVelocity * CGFloat(dt)
+
+        if y <= floorY {
+            y = floorY
+            if fallVelocity > minBounceVelocity {
+                fallVelocity = -fallVelocity * bounceDamping
+            } else {
+                isFalling = false
+                fallVelocity = 0
+                spriteRenderer.setFrame(.idle)
+                walkPixelX = window.frame.origin.x
+                pauseEndTime = CACurrentMediaTime() + Double.random(in: 2.0...5.0)
+            }
+        }
+
+        window.setFrameOrigin(NSPoint(x: window.frame.origin.x, y: y))
+
+        if let pw = previewWindow, pw.isVisible {
+            let cf = window.frame
+            let ps = pw.frame.size
+            var px = cf.midX - ps.width / 2
+            if let s = NSScreen.main { px = max(s.frame.minX + 4, min(px, s.frame.maxX - ps.width - 4)) }
+            pw.setFrameOrigin(NSPoint(x: px, y: cf.maxY + 6))
+        }
+    }
+
     // MARK: - Walking
 
     var walkPixelX: CGFloat = 0
     var walkTargetX: CGFloat = 0
     let walkSpeed: CGFloat = 60
+    private var walkFrameTimer: CFTimeInterval = 0
+    private var walkFrameToggle = false
 
     func startWalk() {
         let cf = window.frame
@@ -1154,14 +1218,16 @@ class CrabCharacter {
 
         isPaused = false
         isWalking = true
+        walkFrameTimer = 0
+        walkFrameToggle = false
         spriteRenderer.setFlipped(!goingRight)
-        spriteRenderer.startWalkAnimation()
+        spriteRenderer.setFrame(.walkA)
     }
 
     func enterPause() {
         isWalking = false
         isPaused = true
-        spriteRenderer.stopWalkAnimation()
+        spriteRenderer.setFrame(.idle)
         pauseEndTime = CACurrentMediaTime() + Double.random(in: 4.0...10.0)
     }
 
@@ -1183,6 +1249,11 @@ class CrabCharacter {
             if !isWalking && !emotionActive { spriteRenderer.setFrame(.idle) }
         }
 
+        if isFalling {
+            updateFalling(dt: dt, floorY: floorY)
+            return
+        }
+
         if panelOpen {
             window.setFrameOrigin(NSPoint(x: window.frame.origin.x, y: floorY))
             positionPopover()
@@ -1197,7 +1268,14 @@ class CrabCharacter {
         }
 
         if isWalking {
+            walkFrameTimer += dt
+            if walkFrameTimer >= 0.2 {
+                walkFrameTimer = 0
+                walkFrameToggle.toggle()
+                spriteRenderer.setFrame(walkFrameToggle ? .walkA : .walkB)
+            }
             let step = walkSpeed * CGFloat(dt)
+            let prevX = walkPixelX
             if goingRight {
                 walkPixelX += step
                 if walkPixelX >= walkTargetX { walkPixelX = walkTargetX; enterPause() }
@@ -1205,7 +1283,9 @@ class CrabCharacter {
                 walkPixelX -= step
                 if walkPixelX <= walkTargetX { walkPixelX = walkTargetX; enterPause() }
             }
-            window.setFrameOrigin(NSPoint(x: walkPixelX, y: floorY))
+            if abs(walkPixelX - prevX) > 0.01 || window.frame.origin.y != floorY {
+                window.setFrameOrigin(NSPoint(x: walkPixelX, y: floorY))
+            }
         }
 
         updateStatusBubble()
@@ -1215,7 +1295,7 @@ class CrabCharacter {
             let ps = pw.frame.size
             var px = cf.midX - ps.width / 2
             if let s = NSScreen.main { px = max(s.frame.minX + 4, min(px, s.frame.maxX - ps.width - 4)) }
-            pw.setFrameOrigin(NSPoint(x: px, y: cf.maxY - 14))
+            pw.setFrameOrigin(NSPoint(x: px, y: cf.maxY + 6))
         }
     }
 }

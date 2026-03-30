@@ -112,7 +112,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         commentScreenItem.state = (ScreenContext.commentsEnabled && ScreenContext.hasPermission) ? .on : .off
         commentMenu.addItem(commentScreenItem)
         commentMenu.addItem(NSMenuItem.separator())
-        for secs in [15, 30, 60, 120, 300] {
+        for secs in [5, 10, 15, 30, 60, 120, 300] {
             let label = secs < 60 ? "\(secs)s" : "\(secs / 60)m"
             let item = NSMenuItem(title: "Every \(label)", action: #selector(setCommentInterval(_:)), keyEquivalent: "")
             item.tag = secs
@@ -207,10 +207,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let crab = controller?.crab else { return }
         if crab.window.isVisible {
             crab.window.orderOut(nil)
+            crab.commentTimer?.invalidate()
+            crab.commentTimer = nil
             sender.state = .off
             sender.title = "Show Clawd"
         } else {
             crab.window.orderFrontRegardless()
+            crab.startCommentTimer()
             sender.state = .on
             sender.title = "Hide Clawd"
         }
