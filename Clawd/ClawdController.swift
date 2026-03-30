@@ -3,11 +3,20 @@ import AppKit
 class ClawdController {
     var crab: CrabCharacter!
     private var displayLink: CVDisplayLink?
+    private var cachedDockX: CGFloat = 0
+    private var cachedDockWidth: CGFloat = 800
+    private var lastDockRefresh: CFTimeInterval = 0
+    private let dockRefreshInterval: CFTimeInterval = 5.0
 
     func start() {
         crab = CrabCharacter()
         crab.controller = self
         crab.setup()
+        if let screen = NSScreen.main {
+            let (dx, dw) = getDockIconArea(screenWidth: screen.frame.width)
+            cachedDockX = dx
+            cachedDockWidth = dw
+        }
         startDisplayLink()
     }
 
@@ -54,10 +63,15 @@ class ClawdController {
 
     func tick() {
         guard let screen = NSScreen.main else { return }
+        let now = CACurrentMediaTime()
+        if now - lastDockRefresh > dockRefreshInterval {
+            lastDockRefresh = now
+            let (dx, dw) = getDockIconArea(screenWidth: screen.frame.width)
+            cachedDockX = dx
+            cachedDockWidth = dw
+        }
         let floorY = screen.visibleFrame.origin.y - 10
-        let screenWidth = screen.frame.width
-        let (dockX, dockWidth) = getDockIconArea(screenWidth: screenWidth)
-        crab.update(floorY: floorY, dockX: dockX + screen.frame.origin.x, dockWidth: dockWidth)
+        crab.update(floorY: floorY, dockX: cachedDockX + screen.frame.origin.x, dockWidth: cachedDockWidth)
     }
 
     deinit {
