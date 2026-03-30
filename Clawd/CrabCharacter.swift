@@ -103,7 +103,7 @@ class CrabCharacter {
             UserDefaults.standard.set(true, forKey: Self.hasLaunchedKey)
             commentTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
                 guard let self = self else { return }
-                let greeting = "hey! i'm clawd. click me to chat, or grant screen access so i can see what you're up to and drop comments!"
+                let greeting = "yo i'm clawd. i live here now. give me screen access so i can judge everything you do 👀"
                 self.spriteRenderer.setFrame(.happy)
                 self.bounce(count: 3, height: 8)
                 self.showEffect(.sparkle)
@@ -160,7 +160,7 @@ class CrabCharacter {
             self.isAutoComment = true
             let seed = Int.random(in: 1000...9999)
             self.session?.send(
-                message: "<system>[\(seed)] You're a chill friend sitting next to the user. Peek at their screen. Say one short casual sentence like you'd text a friend. Start with one emoji that fits your vibe: 😄 🥰 😮 😡 😢 😨 😏 😉</system>",
+                message: "<system>[\(seed)] You're a chaotic unhinged little desktop creature. Peek at the user's screen and say one short sentence reacting to what they're doing. Be funny, dramatic, judgmental, or absurd. You have zero filter. Roast them, hype them, be weird, be deranged. Never be boring or generic. Never quote or repeat what's on screen verbatim. React to it, don't describe it. Start with one emoji that fits your vibe: 😄 😭 😡 😨 🤢 😴 💀 😍</system>",
                 screenshotBase64: img
             )
             self.scheduleNextComment()
@@ -315,13 +315,117 @@ class CrabCharacter {
     private func showEffect(_ effect: EmotionEffect) {
         let layer = spriteRenderer.layer
         let s = CGFloat(spriteRenderer.scale)
-
         switch effect {
         case .sparkle:
+            let c = NSColor(red: 1, green: 0.95, blue: 0.4, alpha: 1)
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
             addPixel(x: 2, y: 2, color: .white, on: layer, scale: s)
-            addPixel(x: 13, y: 3, color: .white, on: layer, scale: s)
-            addPixel(x: 3, y: 4, color: .white, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
         case .heart:
+            let c = NSColor.systemPink
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 4, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 5, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 4, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 4, color: c, on: layer, scale: s)
+        case .angerMark:
+            let c = NSColor(red: 1.0, green: 0.15, blue: 0.1, alpha: 1)
+            addPixel(x: 12, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 3, color: c, on: layer, scale: s)
+        case .sweat:
+            let c = NSColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 0.9)
+            addPixel(x: 13, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 5, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 6, color: c, on: layer, scale: s)
+        case .skull:
+            let c = NSColor.white.withAlphaComponent(0.85)
+            addPixel(x: 1, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
+        }
+    }
+
+    private func showEmojiEffect(_ emoji: String) {
+        let layer = spriteRenderer.layer
+        let s = CGFloat(spriteRenderer.scale)
+
+        switch emoji {
+        case "😄":
+            let c = NSColor(red: 1, green: 0.95, blue: 0.4, alpha: 1)
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 2, color: .white, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 3, color: .white, on: layer, scale: s)
+            addPixel(x: 14, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 4, color: c, on: layer, scale: s)
+        case "😭":
+            let c = NSColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9)
+            addPixel(x: 5, y: 8, color: c, on: layer, scale: s)
+            addPixel(x: 5, y: 9, color: c, on: layer, scale: s)
+            addPixel(x: 5, y: 10, color: c, on: layer, scale: s)
+            addPixel(x: 10, y: 8, color: c, on: layer, scale: s)
+            addPixel(x: 10, y: 9, color: c, on: layer, scale: s)
+            addPixel(x: 10, y: 10, color: c, on: layer, scale: s)
+        case "😡":
+            let c = NSColor(red: 1.0, green: 0.15, blue: 0.1, alpha: 1)
+            addPixel(x: 12, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 3, color: c, on: layer, scale: s)
+        case "😨":
+            let c = NSColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 0.9)
+            addPixel(x: 13, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 5, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 6, color: c, on: layer, scale: s)
+        case "🤢":
+            let c = NSColor(red: 0.4, green: 0.75, blue: 0.2, alpha: 0.9)
+            addPixel(x: 0, y: 6, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 5, color: c, on: layer, scale: s)
+            addPixel(x: 0, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 15, y: 6, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 5, color: c, on: layer, scale: s)
+            addPixel(x: 15, y: 4, color: c, on: layer, scale: s)
+        case "😴":
+            let c = NSColor(red: 0.3, green: 0.55, blue: 1.0, alpha: 0.85)
+            addPixel(x: 13, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 14, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 13, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 11, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 12, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 11, y: 4, color: c, on: layer, scale: s)
+            addPixel(x: 10, y: 5, color: c, on: layer, scale: s)
+        case "💀":
+            let c = NSColor.white.withAlphaComponent(0.85)
+            addPixel(x: 1, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 1, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
+            addPixel(x: 1, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 3, y: 3, color: c, on: layer, scale: s)
+            addPixel(x: 2, y: 4, color: c, on: layer, scale: s)
+        case "😍":
             let c = NSColor.systemPink
             addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
             addPixel(x: 4, y: 1, color: c, on: layer, scale: s)
@@ -334,29 +438,8 @@ class CrabCharacter {
             addPixel(x: 3, y: 3, color: c, on: layer, scale: s)
             addPixel(x: 4, y: 3, color: c, on: layer, scale: s)
             addPixel(x: 3, y: 4, color: c, on: layer, scale: s)
-        case .angerMark:
-            let c = NSColor(red: 0.9, green: 0.2, blue: 0.15, alpha: 1)
-            addPixel(x: 12, y: 1, color: c, on: layer, scale: s)
-            addPixel(x: 14, y: 1, color: c, on: layer, scale: s)
-            addPixel(x: 13, y: 2, color: c, on: layer, scale: s)
-            addPixel(x: 12, y: 3, color: c, on: layer, scale: s)
-            addPixel(x: 14, y: 3, color: c, on: layer, scale: s)
-            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
-            addPixel(x: 3, y: 2, color: c, on: layer, scale: s)
-            addPixel(x: 2, y: 3, color: c, on: layer, scale: s)
-            addPixel(x: 1, y: 4, color: c, on: layer, scale: s)
-            addPixel(x: 3, y: 4, color: c, on: layer, scale: s)
-        case .sweat:
-            let c = NSColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1)
-            addPixel(x: 13, y: 3, color: c, on: layer, scale: s)
-            addPixel(x: 13, y: 4, color: c, on: layer, scale: s)
-            addPixel(x: 14, y: 5, color: c, on: layer, scale: s)
-        case .skull:
-            let c = NSColor.white.withAlphaComponent(0.6)
-            addPixel(x: 1, y: 1, color: c, on: layer, scale: s)
-            addPixel(x: 2, y: 1, color: c, on: layer, scale: s)
-            addPixel(x: 1, y: 2, color: c, on: layer, scale: s)
-            addPixel(x: 2, y: 2, color: c, on: layer, scale: s)
+        default:
+            break
         }
     }
 
@@ -698,19 +781,29 @@ class CrabCharacter {
     // MARK: - Emotions
 
     private static let emojiMap: [(String, CrabSpriteRenderer.Frame)] = [
-        ("😄", .happy), ("😊", .happy), ("🥰", .love), ("😮", .surprised),
-        ("😡", .angry), ("😢", .sad), ("😨", .scared), ("🤢", .angry),
-        ("😏", .smug), ("😉", .wink), ("😴", .sleepy), ("🫥", .idle),
+        ("😄", .happy),
+        ("😭", .sad),
+        ("😡", .angry),
+        ("😨", .scared),
+        ("🤢", .smug),
+        ("😴", .sleepy),
+        ("💀", .dead),
+        ("😍", .love),
     ]
 
     private func parseEmotion(_ text: String) -> (String, String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         for (emoji, _) in Self.emojiMap {
-            if text.hasPrefix(emoji) {
-                let rest = String(text.dropFirst(emoji.count)).trimmingCharacters(in: .whitespacesAndNewlines)
-                return (emoji, rest.isEmpty ? text : rest)
+            if trimmed.hasPrefix(emoji) {
+                let rest = String(trimmed.dropFirst(emoji.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                return (emoji, rest.isEmpty ? trimmed : rest)
             }
         }
-        return ("", text)
+        return ("", trimmed)
+    }
+
+    func triggerEmotion(_ emoji: String) {
+        showEmotion(emoji, forText: "")
     }
 
     private func showEmotion(_ emoji: String, forText text: String = "") {
@@ -718,22 +811,23 @@ class CrabCharacter {
         let frame = Self.emojiMap.first(where: { $0.0 == emoji })?.1 ?? .idle
         spriteRenderer.setFrame(frame)
 
-        switch frame {
-        case .happy: bounce(count: 2, height: 6); showEffect(.sparkle)
-        case .love: pulse(scale: 1.1, count: 2); showEffect(.heart)
-        case .surprised: jump(height: 12)
-        case .angry: shake(intensity: 5, count: 10); showEffect(.angerMark)
-        case .sad: showEffect(.sweat)
-        case .scared: tremble(intensity: 2, duration: 0.8); showEffect(.sweat)
-        case .smug: tilt(angle: -0.1, duration: 0.3)
-        case .wink: tilt(angle: 0.15, duration: 0.2)
+        switch emoji {
+        case "😄": bounce(count: 2, height: 6); showEmojiEffect(emoji)
+        case "😭": bounce(count: 1, height: 3); showEmojiEffect(emoji)
+        case "😡": shake(intensity: 5, count: 10); showEmojiEffect(emoji)
+        case "😨": tremble(intensity: 2, duration: 0.8); showEmojiEffect(emoji)
+        case "🤢": tilt(angle: -0.1, duration: 0.3); showEmojiEffect(emoji)
+        case "😴": tilt(angle: 0.1, duration: 0.4); showEmojiEffect(emoji)
+        case "💀": bounce(count: 1, height: 4); showEmojiEffect(emoji)
+        case "😍": pulse(scale: 1.1, count: 2); showEmojiEffect(emoji)
         default: break
         }
         let words = text.split(separator: " ").count
         let dur = max(2.0, min(Double(words) * 0.8 + 1.5, 18.0))
         DispatchQueue.main.asyncAfter(deadline: .now() + dur) { [weak self] in
-            guard let self = self, !self.isWalking else { return }
-            self.spriteRenderer.setFrame(.idle)
+            guard let self = self else { return }
+            if self.isWalking { self.spriteRenderer.startWalkAnimation() }
+            else { self.spriteRenderer.setFrame(.idle) }
             self.spriteRenderer.layer.transform = CATransform3DIdentity
             self.spriteRenderer.layer.opacity = 1
             self.clearEffects()
@@ -1080,12 +1174,13 @@ class CrabCharacter {
         lastTick = now
 
         blinkTimer += dt
-        if !isBlinking && blinkTimer > nextBlink {
+        let emotionActive = !effectLayers.isEmpty || isAnimatingEmotion
+        if !isBlinking && !emotionActive && blinkTimer > nextBlink {
             isBlinking = true; blinkTimer = 0; spriteRenderer.setFrame(.blink)
         }
         if isBlinking && blinkTimer > 0.15 {
             isBlinking = false; blinkTimer = 0; nextBlink = 2 + Double.random(in: 0...4)
-            if !isWalking { spriteRenderer.setFrame(.idle) }
+            if !isWalking && !emotionActive { spriteRenderer.setFrame(.idle) }
         }
 
         if panelOpen {

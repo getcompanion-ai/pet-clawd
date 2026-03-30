@@ -123,6 +123,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         commentItem.submenu = commentMenu
         menu.addItem(commentItem)
 
+        let emotionMenu = NSMenu()
+        let emotions: [(String, String)] = [
+            ("😄 Happy", "😄"),
+            ("😭 Sad", "😭"),
+            ("😡 Angry", "😡"),
+            ("😨 Fear", "😨"),
+            ("🤢 Disgust", "🤢"),
+            ("😴 Sleepy", "😴"),
+            ("💀 Dead", "💀"),
+            ("😍 Love", "😍"),
+        ]
+        for (label, id) in emotions {
+            let item = NSMenuItem(title: label, action: #selector(playEmotion(_:)), keyEquivalent: "")
+            item.representedObject = id
+            emotionMenu.addItem(item)
+        }
+        let emotionItem = NSMenuItem(title: "Emotions", action: nil, keyEquivalent: "")
+        emotionItem.submenu = emotionMenu
+        menu.addItem(emotionItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let updateItem = NSMenuItem(title: "Check for Updates...", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
@@ -242,6 +262,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func newChat() {
         controller?.crab.clearConversation()
+    }
+
+    @objc func playEmotion(_ sender: NSMenuItem) {
+        guard let crab = controller?.crab, let emoji = sender.representedObject as? String else { return }
+        crab.triggerEmotion(emoji)
     }
 
     @objc func quitApp() {
