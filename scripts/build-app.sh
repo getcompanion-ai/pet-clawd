@@ -140,18 +140,16 @@ xcrun stapler staple "$APP_DIR"
 echo "Creating DMG..."
 rm -f "$DMG_PATH"
 
-DMG_STAGING="$BUILD_DIR/dmg-staging"
-rm -rf "$DMG_STAGING"
-mkdir -p "$DMG_STAGING"
-cp -R "$APP_DIR" "$DMG_STAGING/"
-ln -s /Applications "$DMG_STAGING/Applications"
-
-hdiutil create -volname "Clawd" \
-    -srcfolder "$DMG_STAGING" \
-    -ov -format UDZO \
-    "$DMG_PATH"
-
-rm -rf "$DMG_STAGING"
+create-dmg \
+    --volname "Clawd" \
+    --window-pos 200 120 \
+    --window-size 600 400 \
+    --icon-size 128 \
+    --icon "Clawd.app" 150 200 \
+    --app-drop-link 450 200 \
+    --no-internet-enable \
+    "$DMG_PATH" \
+    "$APP_DIR"
 
 echo ""
 echo "Done."
