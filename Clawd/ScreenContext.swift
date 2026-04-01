@@ -40,13 +40,38 @@ class ScreenContext {
             return
         }
 
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let pidKey = kCGWindowOwnerPID as String
+        let numKey = kCGWindowNumber as String
+        let ownWindowIDs: Set<CGWindowID> = {
+            guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return [] }
+            var ids = Set<CGWindowID>()
+            for info in list {
+                guard let pid = info[pidKey] as? Int32, pid == ownPID,
+                      let wid = info[numKey] as? CGWindowID else { continue }
+                ids.insert(wid)
+            }
+            return ids
+        }()
+
         DispatchQueue.global(qos: .utility).async {
-            guard let cgImage = CGWindowListCreateImage(
-                CGRect.null,
-                .optionOnScreenOnly,
-                kCGNullWindowID,
-                [.bestResolution]
-            ) else {
+            let cgImage: CGImage?
+            if !ownWindowIDs.isEmpty {
+                let allWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+                let filtered: [CGWindowID] = allWindows.compactMap { info in
+                    guard let wid = info[numKey] as? CGWindowID, !ownWindowIDs.contains(wid) else { return nil }
+                    return wid
+                }
+                cgImage = CGImage(windowListFromArrayScreenBounds: CGRect.null, windowArray: filtered as CFArray, imageOption: .bestResolution)
+            } else {
+                cgImage = CGWindowListCreateImage(
+                    CGRect.null,
+                    .optionOnScreenOnly,
+                    kCGNullWindowID,
+                    [.bestResolution]
+                )
+            }
+            guard let cgImage = cgImage else {
                 DispatchQueue.main.async { completion(nil) }
                 return
             }

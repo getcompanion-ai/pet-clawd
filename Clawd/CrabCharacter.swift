@@ -817,7 +817,11 @@ class CrabCharacter {
         showEmotion(emoji, forText: "")
     }
 
+    private var proactiveEmotionTimer: Timer?
+
     private func showEmotion(_ emoji: String, forText text: String = "") {
+        if isAnimatingEmotion { return }
+        proactiveEmotionTimer?.invalidate()
         clearEffects()
         let frame = Self.emojiMap.first(where: { $0.0 == emoji })?.1 ?? .idle
         spriteRenderer.setFrame(frame)
@@ -834,8 +838,8 @@ class CrabCharacter {
         default: break
         }
         let words = text.split(separator: " ").count
-        let dur = max(2.0, min(Double(words) * 0.4 + 1.5, 8.0))
-        DispatchQueue.main.asyncAfter(deadline: .now() + dur) { [weak self] in
+        let dur = max(3.0, min(Double(words) * 0.5 + 2.0, 10.0))
+        proactiveEmotionTimer = Timer.scheduledTimer(withTimeInterval: dur, repeats: false) { [weak self] _ in
             guard let self = self else { return }
             if self.isWalking { self.walkFrameTimer = 0 }
             else { self.spriteRenderer.setFrame(.idle) }
@@ -1006,7 +1010,7 @@ class CrabCharacter {
 
         if autoFade {
             let words = trimmed.split(separator: " ").count
-            let dur = max(2.0, min(Double(words) * 0.4 + 1.5, 8.0))
+            let dur = max(3.0, min(Double(words) * 0.5 + 2.0, 10.0))
             previewFadeTimer = Timer.scheduledTimer(withTimeInterval: dur, repeats: false) { [weak self] _ in
                 NSAnimationContext.runAnimationGroup({ ctx in
                     ctx.duration = 0.5
