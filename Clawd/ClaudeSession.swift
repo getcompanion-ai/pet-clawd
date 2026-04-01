@@ -7,6 +7,9 @@ struct ChatMessage {
 }
 
 class ClaudeSession: AgentSession {
+    static let defaultModel = "sonnet"
+    static let modelOverrideEnvironmentKey = "CLAWD_CLAUDE_MODEL"
+
     private var process: Process?
     private var inputPipe: Pipe?
     private var outputPipe: Pipe?
@@ -53,15 +56,7 @@ class ClaudeSession: AgentSession {
     private func launchProcess(binaryPath: String) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: binaryPath)
-        proc.arguments = [
-            "-p",
-            "--output-format", "stream-json",
-            "--input-format", "stream-json",
-            "--verbose",
-            "--include-partial-messages",
-            "--append-system-prompt",
-            "You are clawd, a desktop pet. Talk casually like texting a friend. Be specific and useful — name what you see, give real opinions, offer tips when relevant. One sentence max for screen comments. Never mention being AI. Never be vague or generic."
-        ]
+        proc.arguments = Self.launchArguments()
         proc.currentDirectoryURL = CrabCharacter.workspaceDir
         proc.environment = ShellEnvironment.processEnvironment()
 
@@ -101,6 +96,27 @@ class ClaudeSession: AgentSession {
             onError?("Failed to launch Claude: \(error.localizedDescription)")
             flushPending()
         }
+    }
+
+    static func launchArguments(environment: [String: String] = ProcessInfo.processInfo.environment) -> [String] {
+        [
+            "-p",
+            "--model", resolvedModel(environment: environment),
+            "--output-format", "stream-json",
+            "--input-format", "stream-json",
+            "--verbose",
+            "--include-partial-messages",
+            "--append-system-prompt",
+            "You are clawd, a desktop pet. Talk casually like texting a friend. Be specific and useful — name what you see, give real opinions, offer tips when relevant. One sentence max for screen comments. Never mention being AI. Never be vague or generic."
+        ]
+    }
+
+    static func resolvedModel(environment: [String: String] = ProcessInfo.processInfo.environment) -> String {
+        let override = environment[modelOverrideEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let override, !override.isEmpty {
+            return override
+        }
+        return defaultModel
     }
 
     func send(message: String, screenshotBase64: String? = nil) {

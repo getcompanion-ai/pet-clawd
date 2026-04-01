@@ -19,6 +19,7 @@ a pixel art crab that lives on your mac, watches your screen, and chats with you
 
 - macOS 13+
 - [Claude CLI](https://docs.anthropic.com/en/docs/claude-cli) installed and authenticated
+- Clawd defaults to Claude `sonnet`; override with `CLAWD_CLAUDE_MODEL=opus` or another Claude model alias/name if needed
 
 ## install
 

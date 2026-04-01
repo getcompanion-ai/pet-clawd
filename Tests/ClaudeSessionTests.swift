@@ -305,4 +305,22 @@ final class ClaudeSessionTests: XCTestCase {
         let result = ClaudeSession.formatToolSummary(name: "CustomTool", input: [:])
         XCTAssertEqual(result, "CustomTool")
     }
+
+    // MARK: - Model selection
+
+    func testLaunchArgumentsDefaultToSonnet() {
+        let arguments = ClaudeSession.launchArguments(environment: [:])
+
+        XCTAssertEqual(arguments[0], "-p")
+        XCTAssertEqual(arguments[1], "--model")
+        XCTAssertEqual(arguments[2], "sonnet")
+    }
+
+    func testResolvedModelUsesEnvironmentOverride() {
+        let model = ClaudeSession.resolvedModel(environment: [
+            ClaudeSession.modelOverrideEnvironmentKey: "opus"
+        ])
+
+        XCTAssertEqual(model, "opus")
+    }
 }
