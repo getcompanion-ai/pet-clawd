@@ -6,17 +6,17 @@
         <description>Clawd update feed</description>
         <language>en</language>
         <item>
-            <title>v1.1.6</title>
-            <description>Independent Screen Context toggles under Chat and Screen Comments submenus.</description>
-            <pubDate>Sat, 29 Mar 2026 11:30:00 -0700</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>1.1.6</sparkle:shortVersionString>
+            <title>v1.3.2</title>
+            <description>Clawd now defaults its shared Claude session to Sonnet and supports overriding the model with CLAWD_CLAUDE_MODEL.</description>
+            <pubDate>Tue, 31 Mar 2026 17:17:39 -0700</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>1.3.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.1.6/Clawd-v1.1.6.zip"
+                url="https://github.com/getcompanion-ai/pet-clawd/releases/download/v1.3.2/Clawd-v1.3.2.zip"
                 type="application/octet-stream"
-                sparkle:edSignature="pIkva8uevCL0Foqa0fXIhywuohYICZ9U7ycZkercyNNoX65pKfRfwrP38ABojBIhv2NdMxaeke7Pq2A34G6rAQ=="
-                length="1202237"
+                sparkle:edSignature="8VxPwGy1E9GGeaSAFRcs7L23lmaPpaUFPYQ3TjaV8gpa7bs5+jAevjFuftfMztPyLneREfu8ChDB8DxGV3lKBQ=="
+                length="1212026"
             />
         </item>
     </channel>

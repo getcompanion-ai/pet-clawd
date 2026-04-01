@@ -6,6 +6,7 @@ BUILD_DIR="$ROOT/build"
 APP_DIR="$BUILD_DIR/Clawd.app"
 CONTENTS="$APP_DIR/Contents"
 DMG_PATH="$BUILD_DIR/Clawd.dmg"
+DMG_STAGE_DIR="$BUILD_DIR/dmg-src"
 
 SIGN_IDENTITY="Developer ID Application: Companion, Inc. (5LYD7HDS6X)"
 TEAM_ID="5LYD7HDS6X"
@@ -30,6 +31,9 @@ cp "$BINARY" "$CONTENTS/MacOS/Clawd"
 
 VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
+RELEASE_TAG="v${VERSION}"
+RELEASE_ZIP_PATH="$BUILD_DIR/Clawd-${RELEASE_TAG}.zip"
+SPARKLE_SIG_PATH="$BUILD_DIR/Clawd-${RELEASE_TAG}.sparkle.txt"
 
 cat > "$CONTENTS/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -137,21 +141,48 @@ rm -f "$ZIP_FOR_NOTARIZE"
 echo "Stapling notarization ticket..."
 xcrun stapler staple "$APP_DIR"
 
+echo "Creating Sparkle ZIP..."
+rm -f "$RELEASE_ZIP_PATH" "$SPARKLE_SIG_PATH"
+ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$RELEASE_ZIP_PATH"
+
+SPARKLE_SIGN_UPDATE="$(find "$ROOT/.build/artifacts" -path "*/Sparkle/bin/sign_update" -type f | head -1)"
+if [ -z "$SPARKLE_SIGN_UPDATE" ] || [ ! -x "$SPARKLE_SIGN_UPDATE" ]; then
+    echo "Error: Sparkle sign_update tool not found"
+    exit 1
+fi
+
+SPARKLE_APPCAST_ATTRS="$("$SPARKLE_SIGN_UPDATE" "$RELEASE_ZIP_PATH")"
+printf "%s\n" "$SPARKLE_APPCAST_ATTRS" > "$SPARKLE_SIG_PATH"
+
 echo "Creating DMG..."
 rm -f "$DMG_PATH"
+rm -rf "$DMG_STAGE_DIR"
+mkdir -p "$DMG_STAGE_DIR"
+cp -R "$APP_DIR" "$DMG_STAGE_DIR/"
 
-create-dmg \
-    --volname "Clawd" \
-    --window-pos 200 120 \
-    --window-size 600 400 \
-    --icon-size 128 \
-    --icon "Clawd.app" 150 200 \
-    --app-drop-link 450 200 \
-    --no-internet-enable \
-    "$DMG_PATH" \
-    "$APP_DIR"
+DMG_ARGS=(
+    --volname "Clawd"
+    --window-pos 200 120
+    --window-size 600 400
+    --icon-size 128
+    --icon "Clawd.app" 150 200
+    --app-drop-link 450 200
+    --no-internet-enable
+    --codesign "$SIGN_IDENTITY"
+    --notarize "notarytool-clawd"
+)
+
+if ! create-dmg "${DMG_ARGS[@]}" "$DMG_PATH" "$DMG_STAGE_DIR"; then
+    echo "create-dmg failed; retrying without Finder customization..."
+    rm -f "$DMG_PATH"
+    create-dmg --skip-jenkins "${DMG_ARGS[@]}" "$DMG_PATH" "$DMG_STAGE_DIR"
+fi
+
+rm -rf "$DMG_STAGE_DIR"
 
 echo ""
 echo "Done."
 echo "  App: $APP_DIR"
 echo "  DMG: $DMG_PATH"
+echo "  ZIP: $RELEASE_ZIP_PATH"
+echo "  Sparkle: $SPARKLE_SIG_PATH"
