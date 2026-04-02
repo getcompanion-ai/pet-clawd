@@ -22,6 +22,7 @@ let package = Package(
             ],
             swiftSettings: [
                 .unsafeFlags(["-parse-as-library"]),
+                .unsafeFlags(["-Xfrontend", "-disable-availability-checking"]),
             ],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", "Clawd/Info.plist"]),
