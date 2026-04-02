@@ -21,7 +21,13 @@ class ScreenContext {
     }
 
     static var hasPermission: Bool {
-        CGPreflightScreenCaptureAccess()
+        if CGPreflightScreenCaptureAccess() { return true }
+        // CGPreflightScreenCaptureAccess returns false on macOS 26 even when
+        // permission is granted. Fall back to attempting a 1x1 capture.
+        return CGWindowListCreateImage(
+            CGRect(x: 0, y: 0, width: 1, height: 1),
+            .optionOnScreenOnly, kCGNullWindowID, []
+        ) != nil
     }
 
     static func requestPermission() {
@@ -62,7 +68,10 @@ class ScreenContext {
                     guard let wid = info[numKey] as? CGWindowID, !ownWindowIDs.contains(wid) else { return nil }
                     return wid
                 }
+                // CGImage(windowListFromArrayScreenBounds:) returns nil on macOS 26.
+                // Fall back to CGWindowListCreateImage which still works.
                 cgImage = CGImage(windowListFromArrayScreenBounds: CGRect.null, windowArray: filtered as CFArray, imageOption: .bestResolution)
+                    ?? CGWindowListCreateImage(.null, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution])
             } else {
                 cgImage = CGWindowListCreateImage(
                     CGRect.null,
