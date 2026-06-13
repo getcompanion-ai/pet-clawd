@@ -5,7 +5,7 @@ class CrabCharacter {
     var spriteRenderer: CrabSpriteRenderer!
     weak var controller: ClawdController?
 
-    let displaySize: CGFloat = 80
+    let displaySize: CGFloat = 120
 
     var isWalking = false
     var isPaused = true
@@ -92,6 +92,7 @@ class CrabCharacter {
         host.layer?.addSublayer(shadowLayer)
         host.layer?.addSublayer(spriteRenderer.layer)
         window.contentView = host
+        spriteRenderer.attach(window: window)
         window.orderFrontRegardless()
         lastTick = CACurrentMediaTime()
 
