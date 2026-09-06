@@ -67,7 +67,7 @@ cat > "$CONTENTS/Info.plist" << PLIST
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/getcompanion-ai/pet-clawd/main/appcast.xml</string>
+    <string>https://raw.githubusercontent.com/advaitpaliwal/pet-clawd/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>p/STOfduNWVMNYn1sjYX3pbM5PnywVU/8WrGUJjpoAI=</string>
 </dict>
