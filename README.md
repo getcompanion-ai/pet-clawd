@@ -23,10 +23,10 @@ a pixel art crab that lives on your mac, watches your screen, and chats with you
 
 ## install
 
-Download the DMG from [releases](https://github.com/getcompanion-ai/pet-clawd/releases), or build from source:
+Download the DMG from [releases](https://github.com/advaitpaliwal/pet-clawd/releases), or build from source:
 
 ```
-git clone https://github.com/getcompanion-ai/pet-clawd.git
+git clone https://github.com/advaitpaliwal/pet-clawd.git
 cd pet-clawd
 swift build
 .build/debug/Clawd
@@ -36,6 +36,19 @@ To build a release .app and DMG:
 
 ```
 ./scripts/build-app.sh
+```
+
+The repository transfer changes source/download/feed locations, not the app's
+bundle identity or update signing key. The current `appcast.xml` is an unsigned
+XML feed with a signed archive enclosure; its archive signature and release
+metadata are preserved. Do not edit a future signed XML feed without the normal
+release signing process. Existing installed apps still contain their original
+feed URL; these source changes do not publish a new app.
+
+Run offline repository/feed consistency checks without building or signing:
+
+```
+python3 scripts/test-repository-links.py
 ```
 
 ## permissions
